@@ -1,6 +1,7 @@
 package com.myccb.SqlGenerate;
 
 import com.myccb.Entity.Append;
+import com.myccb.Entity.F5;
 import com.myccb.util.ExcelUtil.ExcelLogs;
 import com.myccb.util.ExcelUtil.ExcelUtil;
 import com.myccb.util.StringUtil;
@@ -46,20 +47,43 @@ public class ExcelSqlGenerator {
      * @author Swagger-Ranger
      * @since 2020/2/12 22:20
      */
-    public void generate( String srcFilePath, String subject, String description, String creator ) throws FileNotFoundException {
+    public void generate( String srcFilePath, String sheetName, int sqlIndex, String subject, String description, String creator ) throws FileNotFoundException {
+
         if (StringUtil.trimStr(srcFilePath).equals("")) throw new RuntimeException("请输入源文件的文件路径");
 
         File f = new File(srcFilePath);
         InputStream in = new FileInputStream(f);
 
         ExcelLogs logs = new ExcelLogs();
-//        Collection<Append> append = ExcelUtil.importExcel(Append.class, in, "Append", "yyyy/MM/dd", logs, 0);
-        Collection<Append> dataSrc = ExcelUtil.importStringSheetToClass(Append.class, in, "Append",11, logs);
-        Map<String, String> contents = dataSrc.stream()
-                .collect(toMap(
-                        Append::getTARGET_TABLE,//TARGET_TABLE作为键
-                        appendModel -> StringUtil.trimStr(appendModel.getGenerate_Text()),//Generate_Text作为值
-                        ( x, y ) -> StringUtil.trimStr(x) + "\n" + StringUtil.trimStr(y)));//Generate_Text的值字符串作拼接
+        String clazzPath = "com.myccb.Entity" + "." + sheetName;
+        Class clazz = null;
+        try {
+            clazz = Class.forName(clazzPath);
+        } catch (ClassNotFoundException e) {
+            System.err.println("请确认输入，待获取SQL文本的sheet名是否正确");
+
+        }
+
+        Map<String, String> contents = null;
+
+        //针对不同的sheet作不同的解析
+        if ("Append".equals(sheetName)) {
+            Collection<Append> dataSrc = ExcelUtil.importStringSheetToClass(clazz, in, sheetName, sqlIndex, logs);
+            contents = dataSrc.stream()
+                    .collect(toMap(
+                            Append::getTARGET_TABLE,//TARGET_TABLE作为键
+                            appendModel -> StringUtil.trimStr(appendModel.getGenerate_Text()),//Generate_Text作为值
+                            ( x, y ) -> StringUtil.trimStr(x) + "\n" + StringUtil.trimStr(y)));//Generate_Text的值字符串作拼接
+        }
+        if ("F5".equals(sheetName)) {
+            Collection<F5> dataSrc = ExcelUtil.importStringSheetToClass(clazz, in, sheetName, sqlIndex, logs);
+            contents = dataSrc.stream()
+                    .collect(toMap(
+                            F5::getTable_Name,//TARGET_Name作为键
+                            F5 -> StringUtil.trimStr(F5.getScript()),//Script作为值
+                            ( x, y ) -> StringUtil.trimStr(x) + "\n" + StringUtil.trimStr(y)));//Generate_Text的值字符串作拼接
+        }
+
 
         contents.entrySet().forEach(
                 x -> {
@@ -73,7 +97,7 @@ public class ExcelSqlGenerator {
                     //加入sql文本
                     stringBuffer.append(x.getValue());
                     //写入文件,文件路径为固定的相对路径
-                    String filePath = new File("").getAbsolutePath() + "\\out\\" + x.getKey() + ".sql";
+                    String filePath = new File("").getAbsolutePath() + "\\out\\" + sheetName + "\\" + x.getKey() + ".sql";
                     write2File(filePath, stringBuffer.toString());
                 }
         );
@@ -105,9 +129,7 @@ public class ExcelSqlGenerator {
      */
     public void write2File( String outFilePath, String content ) {
         File file = new File(outFilePath);
-        if (!file.getParentFile().exists()) {
-            new File(file.getParent()).mkdir();
-        }
+        makeDirRecurse(file.getParentFile());
         if (!file.exists()) {
             try {
                 file.createNewFile();
@@ -131,11 +153,29 @@ public class ExcelSqlGenerator {
         }
     }
 
+    /**
+     * @param file 目录地址
+     * @return void
+     * @Description 递归生成输出文件的目录
+     * @author Swagger-Ranger
+     * @since 2020/2/17 19:01
+     */
+    private void makeDirRecurse( File file ) {
+        if (file.getParentFile().exists()) {
+            file.mkdir();
+        } else {
+            makeDirRecurse(file.getParentFile());
+            file.mkdir();
+        }
+    }
+
     public static void main( String[] args ) {
         ExcelSqlGenerator excelSqlGenerator = new ExcelSqlGenerator();
         try {
+//            excelSqlGenerator.generate("./src/test/resources/Generate Script TemplateEDW - F1&F2&F5&Append - 副本.xlsm"
+//                    , "F5", 3, null, null, null);
             excelSqlGenerator.generate("./src/test/resources/Generate Script TemplateEDW - F1&F2&F5&Append - 副本.xlsm"
-                    ,null, null, null);
+                    , "Append", 11, null, null, null);
         } catch (FileNotFoundException e) {
             System.err.println("未找到输入文件");
         }

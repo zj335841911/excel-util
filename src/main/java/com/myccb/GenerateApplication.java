@@ -1,8 +1,6 @@
 package com.myccb;
 
 import com.myccb.SqlGenerate.ExcelSqlGenerator;
-
-import java.io.File;
 import java.io.FileNotFoundException;
 
 /**
@@ -16,7 +14,7 @@ public class GenerateApplication {
     public static void main( String[] args ) {
         ExcelSqlGenerator excelSqlGenerator = new ExcelSqlGenerator();
         try {
-            excelSqlGenerator.generate(args[0], args[1], args[2], args[3]);
+            excelSqlGenerator.generate(args[0], args[1], Integer.valueOf(args[2]), args[3],args[3],args[3]);
         } catch (FileNotFoundException e) {
             System.err.println("未找到输入文件");
         } catch (ArrayIndexOutOfBoundsException e1) {
