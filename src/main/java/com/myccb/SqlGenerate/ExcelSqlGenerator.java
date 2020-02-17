@@ -139,7 +139,7 @@ public class ExcelSqlGenerator {
         }
 
         try (
-                FileOutputStream fos = new FileOutputStream(outFilePath);
+                FileOutputStream fos = new FileOutputStream(outFilePath)
         ) {
             byte[] bytes = content.getBytes();
             int length = bytes.length;
