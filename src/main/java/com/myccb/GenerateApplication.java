@@ -32,14 +32,14 @@ public class GenerateApplication {
             String description = "";
             String creator = "";
             if (paramLength == 4) {
-                StringUtil.trimStr(args[3]);
+                subject = StringUtil.trimStr(args[3]);
             }
             if (paramLength == 5) {
-                StringUtil.trimStr(args[3]);
+                subject = StringUtil.trimStr(args[3]);
                 description = StringUtil.trimStr(args[4]);
             }
             if (paramLength == 6) {
-                StringUtil.trimStr(args[3]);
+                subject = StringUtil.trimStr(args[3]);
                 description = StringUtil.trimStr(args[4]);
                 creator = StringUtil.trimStr(args[5]);
             }
