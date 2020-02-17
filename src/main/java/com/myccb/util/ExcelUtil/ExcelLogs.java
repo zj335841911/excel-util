@@ -1,4 +1,4 @@
-package com.sargeraswang.util.ExcelUtil;
+package com.myccb.util.ExcelUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -6,8 +6,6 @@ import java.util.List;
 /**
  * The <code>ExcelLogs</code>
  * 
- * @author sargeras.wang
- * @version 1.0, Created at 2013年9月17日
  */
 public class ExcelLogs {
     private Boolean hasError;

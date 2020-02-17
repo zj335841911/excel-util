@@ -1,4 +1,4 @@
-package com.sargeraswang.util.ExcelUtil;
+package com.myccb.util.ExcelUtil;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -9,10 +9,7 @@ import java.lang.annotation.Target;
 /**
  * The <code>ExcelCell</code><br>
  * 数值型的栏位只能使用Double
- * @see {@link com.sargeraswang.util.ExcelUtil.ExcelUtil#exportExcel}
- * @author sargeras.wang
- * @version 1.0, Created at 2013年9月14日
- * @version 1.1, Updated at 2013年10月20日 ,添加了专用于验证的子注解:Valid
+ * @see {@link ExcelUtil#exportExcel}
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)

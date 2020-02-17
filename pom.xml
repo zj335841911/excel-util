@@ -2,35 +2,24 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.sargeraswang.util</groupId>
-    <artifactId>excel-util</artifactId>
-    <version>1.2.4</version>
+    <groupId>com.myccb.util</groupId>
+    <artifactId>ExcelSqlGenerator</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>ExcelUtil</name>
-    <description>用于导入导出Excel的Util包，基于Java的POI。可将List Bean 导出成Excel，或读取Excel成List Bean,读取时有验证和Log。</description>
-    <url>https://github.com/SargerasWang/ExcelUtil</url>
-    <licenses>
-        <license>
-            <name>The Apache Software License, Version 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
-        </license>
-    </licenses>
+    <name>ExcelSqlGenerator</name>
+    <description>读取Excel文件，并单独见文本写入文件</description>
     <developers>
         <developer>
-            <name>SargerasWang</name>
-            <email>sargeraswang@gmail.com</email>
+            <name>Swagger-Ranger</name>
+            <email>liufei32@outlook.com</email>
         </developer>
     </developers>
-    <scm>
-        <url>https://github.com/SargerasWang/ExcelUtil.git</url>
-        <tag>excel-util.1.2</tag>
-    </scm>
 
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <gpg.executable>gpg2</gpg.executable>
-    </properties>
+<!--    <properties>-->
+<!--        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>-->
+<!--        <gpg.executable>gpg2</gpg.executable>-->
+<!--    </properties>-->
 
     <dependencies>
         <dependency>
@@ -70,6 +59,12 @@
             <artifactId>slf4j-api</artifactId>
             <version>1.7.5</version>
         </dependency>
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>1.18.12</version>
+                <scope>provided</scope>
+            </dependency>
     </dependencies>
     <build>
         <plugins>
@@ -78,8 +73,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>2.3.2</version>
                 <configuration>
-                    <source>1.7</source>
-                    <target>1.7</target>
+                    <source>8</source>
+                    <target>8</target>
                     <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
@@ -91,31 +86,51 @@
                     <skipTests>true</skipTests>
                 </configuration>
             </plugin>
+<!--            <plugin>-->
+<!--                <groupId>org.apache.maven.plugins</groupId>-->
+<!--                <artifactId>maven-source-plugin</artifactId>-->
+<!--                <version>2.4</version>-->
+<!--                <executions>-->
+<!--                    <execution>-->
+<!--                        <id>attach-sources</id>-->
+<!--                        <goals>-->
+<!--                            <goal>jar</goal>-->
+<!--                        </goals>-->
+<!--                    </execution>-->
+<!--                </executions>-->
+<!--            </plugin>-->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-source-plugin</artifactId>
-                <version>2.4</version>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>2.4.1</version>
                 <executions>
                     <execution>
-                        <id>attach-sources</id>
+                        <phase>package</phase>
                         <goals>
-                            <goal>jar</goal>
+                            <goal>shade</goal>
                         </goals>
+                        <configuration>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.myccb.GenerateApplication</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
     </build>
 
-    <distributionManagement>
-        <site>
-            <id>master</id>
-            <name>ExcelUtil GitHub Pages</name>
-            <url>https://github.com/SargerasWang/ExcelUtil.git</url>
-        </site>
-        <repository>
-            <id>sonatype</id>
-            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-        </repository>
-    </distributionManagement>
+<!--    <distributionManagement>-->
+<!--        <site>-->
+<!--            <id>master</id>-->
+<!--            <name>ExcelUtil GitHub Pages</name>-->
+<!--            <url>https://github.com/SargerasWang/ExcelUtil.git</url>-->
+<!--        </site>-->
+<!--        <repository>-->
+<!--            <id>sonatype</id>-->
+<!--            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>-->
+<!--        </repository>-->
+<!--    </distributionManagement>-->
 </project>

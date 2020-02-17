@@ -1,4 +1,4 @@
-package com.sargeraswang.util.ExcelUtil;
+package com.myccb.util.ExcelUtil;
 
 import org.apache.commons.beanutils.BeanComparator;
 import org.apache.commons.collections.CollectionUtils;
@@ -23,8 +23,6 @@ import java.util.*;
 /**
  * The <code>ExcelUtil</code> 与 {@link ExcelCell}搭配使用
  *
- * @author sargeras.wang
- * @version 1.0, Created at 2013年9月14日
  */
 public class ExcelUtil {
 
@@ -391,10 +389,11 @@ public class ExcelUtil {
      * @param pattern     如果有时间数据，设定输入格式。默认为"yyy-MM-dd"
      * @param logs        错误log集合
      * @param arrayCount  如果vo中有数组类型,那就按照index顺序,把数组应该有几个值写上.
+     * @param sheetNum    第 sheetNum 的sheet页
      * @return voList
      * @throws RuntimeException
      */
-    public static <T> Collection<T> importExcel(Class<T> clazz, InputStream inputStream,
+    public static <T> Collection<T> importExcel(Class<T> clazz, InputStream inputStream,String sheetNum,
                                                 String pattern, ExcelLogs logs, Integer... arrayCount) {
         Workbook workBook;
         try {
@@ -404,7 +403,8 @@ public class ExcelUtil {
             return null;
         }
         List<T> list = new ArrayList<>();
-        Sheet sheet = workBook.getSheetAt(0);
+//        Sheet sheet = workBook.getSheetAt(sheetNum);//通过序列获取sheet页
+        Sheet sheet = workBook.getSheet(sheetNum);//通过sheet页名获取
         Iterator<Row> rowIterator = sheet.rowIterator();
         try {
             List<ExcelLog> logList = new ArrayList<>();
@@ -436,8 +436,26 @@ public class ExcelUtil {
                         break;
                     }
                 }
+
+                //如果生成列是的数据被标记为删除线则跳过，AppenModel里对应列表为Generate_Text index = 11
+                boolean deleteRow = false;
+                Cell cell_del = row.getCell(11);
+                if (null != cell_del) {
+                    CellStyle cellStyle = cell_del.getCellStyle();
+                    if (null != cellStyle) {
+                        Font font = workBook.getFontAt(cellStyle.getFontIndex());
+                        if (font.getStrikeout()) {
+                            deleteRow = true;
+                        }
+                    }
+                }
+
                 if (allRowIsNull) {
                     LG.warn("Excel row " + row.getRowNum() + " all row value is null!");
+                    continue;
+                }
+                if (deleteRow) {
+                    LG.warn("Excel row " + row.getRowNum() + " data at index =11 is marked as deleted!");
                     continue;
                 }
                 StringBuilder log = new StringBuilder();
