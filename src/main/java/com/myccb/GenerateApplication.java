@@ -15,8 +15,9 @@ public class GenerateApplication {
 
     public static void main( String[] args ) {
         ExcelSqlGenerator excelSqlGenerator = new ExcelSqlGenerator();
+        int paramLength = args.length;
         try {
-            if (args.length <= 3) {
+            if (paramLength < 3) {
                 System.err.println("请输入3-6个参数，前3个为必传：" + "\n" +
                         "args[0]: 源文件路径" + "\n" +
                         "args[1]: sheet名" + "\n" +
@@ -27,9 +28,22 @@ public class GenerateApplication {
                 );
             }
 
-            String subject = StringUtil.trimStr(args[3]);
-            String description = StringUtil.trimStr(args[4]);
-            String creator = StringUtil.trimStr(args[5]);
+            String subject = "";
+            String description = "";
+            String creator = "";
+            if (paramLength == 4) {
+                StringUtil.trimStr(args[3]);
+            }
+            if (paramLength == 5) {
+                StringUtil.trimStr(args[3]);
+                description = StringUtil.trimStr(args[4]);
+            }
+            if (paramLength == 6) {
+                StringUtil.trimStr(args[3]);
+                description = StringUtil.trimStr(args[4]);
+                creator = StringUtil.trimStr(args[5]);
+            }
+
             excelSqlGenerator.generate(args[0], args[1], Integer.valueOf(args[2]), subject, description, creator);
         } catch (FileNotFoundException e) {
             System.err.println("未找到输入文件");
