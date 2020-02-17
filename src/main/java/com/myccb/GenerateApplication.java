@@ -16,7 +16,7 @@ public class GenerateApplication {
     public static void main( String[] args ) {
         ExcelSqlGenerator excelSqlGenerator = new ExcelSqlGenerator();
         try {
-            excelSqlGenerator.appendGenerate(args[0], new File("").getAbsolutePath() + "\\out\\", args[1], args[2], args[3]);
+            excelSqlGenerator.generate(args[0], args[1], args[2], args[3]);
         } catch (FileNotFoundException e) {
             System.err.println("未找到输入文件");
         } catch (ArrayIndexOutOfBoundsException e1) {

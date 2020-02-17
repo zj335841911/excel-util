@@ -295,7 +295,7 @@ public class ExcelUtil {
                         cellNum++;
                     }
                 } else {
-                    List<FieldForSortting> fields = sortFieldByAnno(t.getClass());
+                    List<FieldAtIndex> fields = sortFieldByAnno(t.getClass());
                     int cellNum = 0;
                     for (int i = 0; i < fields.size(); i++) {
                         HSSFCell cell = row.createCell(cellNum);
@@ -437,25 +437,8 @@ public class ExcelUtil {
                     }
                 }
 
-                //如果生成列是的数据被标记为删除线则跳过，AppenModel里对应列表为Generate_Text index = 11
-                boolean deleteRow = false;
-                Cell cell_del = row.getCell(11);
-                if (null != cell_del) {
-                    CellStyle cellStyle = cell_del.getCellStyle();
-                    if (null != cellStyle) {
-                        Font font = workBook.getFontAt(cellStyle.getFontIndex());
-                        if (font.getStrikeout()) {
-                            deleteRow = true;
-                        }
-                    }
-                }
-
                 if (allRowIsNull) {
                     LG.warn("Excel row " + row.getRowNum() + " all row value is null!");
-                    continue;
-                }
-                if (deleteRow) {
-                    LG.warn("Excel row " + row.getRowNum() + " data at index =11 is marked as deleted!");
                     continue;
                 }
                 StringBuilder log = new StringBuilder();
@@ -479,10 +462,11 @@ public class ExcelUtil {
                     T t = clazz.newInstance();
                     int arrayIndex = 0;// 标识当前第几个数组了
                     int cellIndex = 0;// 标识当前读到这一行的第几个cell了
-                    List<FieldForSortting> fields = sortFieldByAnno(clazz);
-                    for (FieldForSortting ffs : fields) {
+                    List<FieldAtIndex> fields = sortFieldByAnno(clazz);
+                    for (FieldAtIndex ffs : fields) {
                         Field field = ffs.getField();
                         field.setAccessible(true);
+                        //处理映射属性为数组的情况
                         if (field.getType().isArray()) {
                             Integer count = arrayCount[arrayIndex];
                             Object[] value;
@@ -556,6 +540,113 @@ public class ExcelUtil {
         }
         return list;
     }
+
+    /**
+     * @Description 导入属性都是字符串的sheet为Java对象
+     * @param clazz 映射类
+     * @param inputStream excel文件流
+     * @param sheetName sheet名
+     * @param index 需要排除的目标列下标，即对应列中如果被删除线标记就跳过
+     * @param logs 日志
+     * @return java.util.Collection<T>
+     * @author Swagger-Ranger
+     * @since 2020/2/17 17:07
+     */
+    public static <T> Collection<T> importStringSheetToClass( Class<T> clazz, InputStream inputStream, String sheetName,
+                                                              int index, ExcelLogs logs ) {
+
+        Workbook workBook;
+        try {
+            workBook = WorkbookFactory.create(inputStream);
+        } catch (Exception e) {
+            LG.error("load excel file error", e);
+            return null;
+        }
+        List<T> list = new ArrayList<>();
+        Sheet sheet = workBook.getSheet(sheetName);//通过sheet页名获取,workBook.getSheetAt(sheetNum);//通过序列获取
+        Iterator<Row> rowIterator = sheet.rowIterator();
+        try {
+            List<ExcelLog> logList = new ArrayList<>();
+            while (rowIterator.hasNext()) {
+                Row row = rowIterator.next();
+                if (row.getRowNum() == 0) {
+                    continue;//跳过第一行的title行
+                }
+
+                // 整行都空，就跳过
+                boolean allRowIsNull = true;
+                Iterator<Cell> cellIterator = row.cellIterator();
+                while (cellIterator.hasNext()) {
+                    Object cellValue = getCellValue(cellIterator.next());
+                    if (cellValue != null) {
+                        allRowIsNull = false;
+                        break;
+                    }
+                }
+
+                //如果生成列是的数据被标记为删除线则跳过，AppenModel里对应列表为Generate_Text index = 11
+                boolean deleteRow = false;
+                Cell cell_del = row.getCell(index);
+                if (null != cell_del) {
+                    CellStyle cellStyle = cell_del.getCellStyle();
+                    if (null != cellStyle) {
+                        Font font = workBook.getFontAt(cellStyle.getFontIndex());
+                        if (font.getStrikeout()) {
+                            deleteRow = true;
+                        }
+                    }
+                }
+
+                if (allRowIsNull) {
+                    LG.warn("Excel row " + row.getRowNum() + " all row value is null!");
+                    continue;
+                }
+                if (deleteRow) {
+                    LG.warn("Excel row " + row.getRowNum() + " data at index =" + index + " is marked as deleted!");
+                    continue;
+                }
+                StringBuilder log = new StringBuilder();
+
+                T t = clazz.newInstance();
+                int cellIndex = 0;// 标识当前读到这一行的第几个cell了
+                List<FieldAtIndex> fields = sortFieldByAnno(clazz);
+                for (FieldAtIndex ffs : fields) {
+                    Field field = ffs.getField();
+                    field.setAccessible(true);
+                    Cell cell = row.getCell(cellIndex);
+                    String errMsg = validateCell(cell, field, cellIndex);
+                    if (isBlank(errMsg)) {
+                        Object value = null;
+                        value = getCellValue(cell);
+                        // 处理特殊情况,excel的value为String,且bean中为其他,且defaultValue不为空,那就=defaultValue
+                        ExcelCell annoCell = field.getAnnotation(ExcelCell.class);
+                        if (value instanceof String && !field.getType().equals(String.class)
+                                && isNotBlank(annoCell.defaultValue())) {
+                            value = annoCell.defaultValue();
+                        }
+                        field.set(t, value);
+                    }
+                    if (isNotBlank(errMsg)) {
+                        log.append(errMsg).append(";");
+                        logs.setHasError(true);
+                    }
+                    cellIndex++;
+                }
+                list.add(t);
+                logList.add(new ExcelLog(t, log.toString(), row.getRowNum() + 1));
+            }
+            logs.setLogList(logList);
+        } catch (InstantiationException e) {
+            throw new RuntimeException(MessageFormat.format("can not instance class:{0}",
+                    clazz.getSimpleName()), e);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(MessageFormat.format("can not instance class:{0}",
+                    clazz.getSimpleName()), e);
+        }
+        return list;
+    }
+
+
 
     /**
      * 驗證Cell類型是否正確
@@ -663,10 +754,10 @@ public class ExcelUtil {
      * @param clazz
      * @return
      */
-    private static List<FieldForSortting> sortFieldByAnno(Class<?> clazz) {
+    private static List<FieldAtIndex> sortFieldByAnno( Class<?> clazz) {
         Field[] fieldsArr = clazz.getDeclaredFields();
-        List<FieldForSortting> fields = new ArrayList<>();
-        List<FieldForSortting> annoNullFields = new ArrayList<>();
+        List<FieldAtIndex> fields = new ArrayList<>();
+        List<FieldAtIndex> annoNullFields = new ArrayList<>();
         for (Field field : fieldsArr) {
             ExcelCell ec = field.getAnnotation(ExcelCell.class);
             if (ec == null) {
@@ -674,39 +765,39 @@ public class ExcelUtil {
                 continue;
             }
             int id = ec.index();
-            fields.add(new FieldForSortting(field, id));
+            fields.add(new FieldAtIndex(field, id));
         }
-        fields.addAll(annoNullFields);
-        sortByProperties(fields, true, false, "index");
+//        fields.addAll(annoNullFields);
+//        sortByProperties(fields, true, false, "index");
         return fields;
     }
 
-    private static void sortByProperties(List<? extends Object> list, boolean isNullHigh,
-                                         boolean isReversed, String... props) {
-        if (CollectionUtils.isNotEmpty(list)) {
-            Comparator<?> typeComp = ComparableComparator.getInstance();
-            if (isNullHigh == true) {
-                typeComp = ComparatorUtils.nullHighComparator(typeComp);
-            } else {
-                typeComp = ComparatorUtils.nullLowComparator(typeComp);
-            }
-            if (isReversed) {
-                typeComp = ComparatorUtils.reversedComparator(typeComp);
-            }
-
-            List<Object> sortCols = new ArrayList<Object>();
-
-            if (props != null) {
-                for (String prop : props) {
-                    sortCols.add(new BeanComparator(prop, typeComp));
-                }
-            }
-            if (sortCols.size() > 0) {
-                Comparator<Object> sortChain = new ComparatorChain(sortCols);
-                Collections.sort(list, sortChain);
-            }
-        }
-    }
+//    private static void sortByProperties(List<? extends Object> list, boolean isNullHigh,
+//                                         boolean isReversed, String... props) {
+//        if (CollectionUtils.isNotEmpty(list)) {
+//            Comparator<?> typeComp = ComparableComparator.getInstance();
+//            if (isNullHigh == true) {
+//                typeComp = ComparatorUtils.nullHighComparator(typeComp);
+//            } else {
+//                typeComp = ComparatorUtils.nullLowComparator(typeComp);
+//            }
+//            if (isReversed) {
+//                typeComp = ComparatorUtils.reversedComparator(typeComp);
+//            }
+//
+//            List<Object> sortCols = new ArrayList<Object>();
+//
+//            if (props != null) {
+//                for (String prop : props) {
+//                    sortCols.add(new BeanComparator(prop, typeComp));
+//                }
+//            }
+//            if (sortCols.size() > 0) {
+//                Comparator<Object> sortChain = new ComparatorChain(sortCols);
+//                Collections.sort(list, sortChain);
+//            }
+//        }
+//    }
 
     private static boolean isBlank(String str){
         if(str == null){

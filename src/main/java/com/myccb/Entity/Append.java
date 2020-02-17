@@ -12,7 +12,7 @@ import lombok.ToString;
 
 @Data
 @ToString
-public class AppendModel {
+public class Append {
 
     @ExcelCell(index = 0)
     private String Group;

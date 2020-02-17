@@ -3,7 +3,7 @@
  */
 package com.sargeraswang.util.ExcelUtil;
 
-import com.myccb.Entity.AppendModel;
+import com.myccb.Entity.Append;
 import com.myccb.util.ExcelUtil.ExcelLogs;
 import com.myccb.util.ExcelUtil.ExcelUtil;
 import org.junit.Test;
@@ -48,7 +48,7 @@ public class TestImportExcel {
 
     ExcelLogs logs =new ExcelLogs();
 
-    Collection<AppendModel> append = ExcelUtil.importExcel(AppendModel.class, in, "Append", "yyyy/MM/dd", logs, 0);
+    Collection<Append> append = ExcelUtil.importExcel(Append.class, in, "Append", "yyyy/MM/dd", logs, 0);
     System.out.println(append.size());
     System.out.println(append.stream().filter(x-> !(null ==x.getGenerate_Text()||x.getGenerate_Text().trim().equals(""))).count());
 //    System.out.println(append.stream().filter(x-> !(null ==x.getGenerate_Text()||x.getGenerate_Text().trim().equals(""))).findAny());

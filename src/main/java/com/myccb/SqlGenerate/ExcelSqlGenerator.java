@@ -1,6 +1,6 @@
 package com.myccb.SqlGenerate;
 
-import com.myccb.Entity.AppendModel;
+import com.myccb.Entity.Append;
 import com.myccb.util.ExcelUtil.ExcelLogs;
 import com.myccb.util.ExcelUtil.ExcelUtil;
 import com.myccb.util.StringUtil;
@@ -39,7 +39,6 @@ public class ExcelSqlGenerator {
 
     /**
      * @param srcFilePath 文件路径
-     * @param outFilePath 输出文件路径
      * @param subject     输出文件的注释头
      * @param description 输出文件的注释头
      * @param creator     输出文件的注释头
@@ -47,18 +46,18 @@ public class ExcelSqlGenerator {
      * @author Swagger-Ranger
      * @since 2020/2/12 22:20
      */
-    public void appendGenerate( String srcFilePath, String outFilePath, String subject, String description, String creator ) throws FileNotFoundException {
+    public void generate( String srcFilePath, String subject, String description, String creator ) throws FileNotFoundException {
         if (StringUtil.trimStr(srcFilePath).equals("")) throw new RuntimeException("请输入源文件的文件路径");
-        if (StringUtil.trimStr(outFilePath).equals("")) throw new RuntimeException("请输入目标文件的文件路径");
 
         File f = new File(srcFilePath);
         InputStream in = new FileInputStream(f);
 
         ExcelLogs logs = new ExcelLogs();
-        Collection<AppendModel> append = ExcelUtil.importExcel(AppendModel.class, in, "Append", "yyyy/MM/dd", logs, 0);
-        Map<String, String> contents = append.stream()
+//        Collection<Append> append = ExcelUtil.importExcel(Append.class, in, "Append", "yyyy/MM/dd", logs, 0);
+        Collection<Append> dataSrc = ExcelUtil.importStringSheetToClass(Append.class, in, "Append",11, logs);
+        Map<String, String> contents = dataSrc.stream()
                 .collect(toMap(
-                        AppendModel::getTARGET_TABLE,//TARGET_TABLE作为键
+                        Append::getTARGET_TABLE,//TARGET_TABLE作为键
                         appendModel -> StringUtil.trimStr(appendModel.getGenerate_Text()),//Generate_Text作为值
                         ( x, y ) -> StringUtil.trimStr(x) + "\n" + StringUtil.trimStr(y)));//Generate_Text的值字符串作拼接
 
@@ -73,8 +72,8 @@ public class ExcelSqlGenerator {
                                     StringUtil.trimStr(creator)));
                     //加入sql文本
                     stringBuffer.append(x.getValue());
-                    //写入文件
-                    String filePath = outFilePath + x.getKey() + ".sql";
+                    //写入文件,文件路径为固定的相对路径
+                    String filePath = new File("").getAbsolutePath() + "\\out\\" + x.getKey() + ".sql";
                     write2File(filePath, stringBuffer.toString());
                 }
         );
@@ -106,6 +105,9 @@ public class ExcelSqlGenerator {
      */
     public void write2File( String outFilePath, String content ) {
         File file = new File(outFilePath);
+        if (!file.getParentFile().exists()) {
+            new File(file.getParent()).mkdir();
+        }
         if (!file.exists()) {
             try {
                 file.createNewFile();
@@ -132,14 +134,12 @@ public class ExcelSqlGenerator {
     public static void main( String[] args ) {
         ExcelSqlGenerator excelSqlGenerator = new ExcelSqlGenerator();
         try {
-            excelSqlGenerator.appendGenerate("./src/test/resources/Generate Script TemplateEDW - F1&F2&F5&Append - 副本.xlsm"
-                    , new File("").getAbsolutePath() + "\\out\\", null, null, null);
+            excelSqlGenerator.generate("./src/test/resources/Generate Script TemplateEDW - F1&F2&F5&Append - 副本.xlsm"
+                    ,null, null, null);
         } catch (FileNotFoundException e) {
             System.err.println("未找到输入文件");
         }
 
 //        excelSqlGenerator.write2File("./out.sql","aaaaaaaaaaaaaaaa");
-
-
     }
 }
