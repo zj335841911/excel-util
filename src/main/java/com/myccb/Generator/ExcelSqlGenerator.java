@@ -1,4 +1,4 @@
-package com.myccb.SqlGenerate;
+package com.myccb.Generator;
 
 import com.myccb.Entity.Append;
 import com.myccb.Entity.F5;

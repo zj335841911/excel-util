@@ -313,9 +313,9 @@ public class ExcelUtil {
             }
         }
         // 设定自动宽度
-        for (int i = 0; i < headers.size(); i++) {
-            sheet.autoSizeColumn(i);
-        }
+//        for (int i = 0; i < headers.size(); i++) {
+//            sheet.autoSizeColumn(i);
+//        }
     }
 
     private static int setCellValue(HSSFCell cell,Object value,String pattern,int cellNum,Field field,HSSFRow row){
@@ -563,7 +563,14 @@ public class ExcelUtil {
             return null;
         }
         List<T> list = new ArrayList<>();
-        Sheet sheet = workBook.getSheet(sheetName);//通过sheet页名获取,workBook.getSheetAt(sheetNum);//通过序列获取
+        Sheet sheet = null;
+        try {
+            //如果传入的是数字字符串则解析为按下标读取
+            int sheetIndex = Integer.parseInt(sheetName);
+            sheet = workBook.getSheetAt(sheetIndex);
+        } catch (NumberFormatException e) {
+            sheet = workBook.getSheet(sheetName);//通过sheet页名获取,workBook.getSheetAt(sheetNum);//通过序列获取
+        }
         Iterator<Row> rowIterator = sheet.rowIterator();
         try {
             List<ExcelLog> logList = new ArrayList<>();
@@ -609,7 +616,7 @@ public class ExcelUtil {
 
                 T t = clazz.newInstance();
                 int cellIndex = 0;// 标识当前读到这一行的第几个cell了
-                List<FieldAtIndex> fields = sortFieldByAnno(clazz);
+                List<FieldAtIndex> fields = FieldByAnno(clazz);
                 for (FieldAtIndex ffs : fields) {
                     Field field = ffs.getField();
                     field.setAccessible(true);
@@ -767,37 +774,54 @@ public class ExcelUtil {
             int id = ec.index();
             fields.add(new FieldAtIndex(field, id));
         }
-//        fields.addAll(annoNullFields);
-//        sortByProperties(fields, true, false, "index");
+        fields.addAll(annoNullFields);
+        sortByProperties(fields, true, false, "index");
         return fields;
     }
 
-//    private static void sortByProperties(List<? extends Object> list, boolean isNullHigh,
-//                                         boolean isReversed, String... props) {
-//        if (CollectionUtils.isNotEmpty(list)) {
-//            Comparator<?> typeComp = ComparableComparator.getInstance();
-//            if (isNullHigh == true) {
-//                typeComp = ComparatorUtils.nullHighComparator(typeComp);
-//            } else {
-//                typeComp = ComparatorUtils.nullLowComparator(typeComp);
-//            }
-//            if (isReversed) {
-//                typeComp = ComparatorUtils.reversedComparator(typeComp);
-//            }
-//
-//            List<Object> sortCols = new ArrayList<Object>();
-//
-//            if (props != null) {
-//                for (String prop : props) {
-//                    sortCols.add(new BeanComparator(prop, typeComp));
-//                }
-//            }
-//            if (sortCols.size() > 0) {
-//                Comparator<Object> sortChain = new ComparatorChain(sortCols);
-//                Collections.sort(list, sortChain);
-//            }
-//        }
-//    }
+    private static List<FieldAtIndex> FieldByAnno( Class<?> clazz) {
+        Field[] fieldsArr = clazz.getDeclaredFields();
+        List<FieldAtIndex> fields = new ArrayList<>();
+        List<FieldAtIndex> annoNullFields = new ArrayList<>();
+        for (Field field : fieldsArr) {
+            ExcelCell ec = field.getAnnotation(ExcelCell.class);
+            if (ec == null) {
+                // 没有ExcelCell Annotation 视为不汇入
+                continue;
+            }
+            int id = ec.index();
+            fields.add(new FieldAtIndex(field, id));
+        }
+        return fields;
+    }
+
+
+    private static void sortByProperties(List<? extends Object> list, boolean isNullHigh,
+                                         boolean isReversed, String... props) {
+        if (CollectionUtils.isNotEmpty(list)) {
+            Comparator<?> typeComp = ComparableComparator.getInstance();
+            if (isNullHigh == true) {
+                typeComp = ComparatorUtils.nullHighComparator(typeComp);
+            } else {
+                typeComp = ComparatorUtils.nullLowComparator(typeComp);
+            }
+            if (isReversed) {
+                typeComp = ComparatorUtils.reversedComparator(typeComp);
+            }
+
+            List<Object> sortCols = new ArrayList<Object>();
+
+            if (props != null) {
+                for (String prop : props) {
+                    sortCols.add(new BeanComparator(prop, typeComp));
+                }
+            }
+            if (sortCols.size() > 0) {
+                Comparator<Object> sortChain = new ComparatorChain(sortCols);
+                Collections.sort(list, sortChain);
+            }
+        }
+    }
 
     private static boolean isBlank(String str){
         if(str == null){
@@ -810,4 +834,8 @@ public class ExcelUtil {
         return !isBlank(str);
     }
 
+    public static void main( String[] args ) {
+        System.out.println(Integer.parseInt("1"));
+
+    }
 }

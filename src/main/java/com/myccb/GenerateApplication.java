@@ -1,6 +1,6 @@
 package com.myccb;
 
-import com.myccb.SqlGenerate.ExcelSqlGenerator;
+import com.myccb.Generator.ExcelSqlGenerator;
 import com.myccb.util.StringUtil;
 
 import java.io.FileNotFoundException;

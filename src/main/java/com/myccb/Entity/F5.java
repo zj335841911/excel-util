@@ -5,7 +5,6 @@ import lombok.Data;
 import lombok.ToString;
 
 /**
- * @Company silinx 本质思考，快速行动，价值创造
  * @Author Email:liufei32@outlook.com  github:Swagger-Ranger
  * @Date 2020/2/17 17:11
  * @Description
