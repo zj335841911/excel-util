@@ -35,18 +35,21 @@ public class Mapper {
     private String TARGET_DATA_TYPE;
 
     @ExcelCell(index = 6)
-    private String STAGE_TABLE;
+    private String BLANK_COLUMN;
 
     @ExcelCell(index = 7)
-    private String STAGE_FIELD;
+    private String STAGE_TABLE;
 
     @ExcelCell(index = 8)
-    private String 源字段描述;
+    private String STAGE_FIELD;
 
     @ExcelCell(index = 9)
-    private String SOURCE_DATA_TYPE;
+    private String 源字段描述;
 
     @ExcelCell(index = 10)
+    private String SOURCE_DATA_TYPE;
+
+    @ExcelCell(index = 11)
     private String LOGIC;
 
 
