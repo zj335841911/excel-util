@@ -2,6 +2,8 @@ package com.myccb.Generator;
 
 import com.myccb.Entity.Append;
 import com.myccb.Entity.F5;
+import com.myccb.Entity.ITL;
+import com.myccb.Entity.RPT;
 import com.myccb.util.ExcelUtil.ExcelLogs;
 import com.myccb.util.ExcelUtil.ExcelUtil;
 import com.myccb.util.StringUtil;
@@ -81,6 +83,22 @@ public class ExcelSqlGenerator {
                     .collect(toMap(
                             F5::getTable_Name,//TARGET_Name作为键
                             F5 -> StringUtil.trimStr(F5.getScript()),//Script作为值
+                            ( x, y ) -> StringUtil.trimStr(x) + "\n" + StringUtil.trimStr(y)));//Generate_Text的值字符串作拼接
+        }
+        if ("ITL".equals(sheetName)) {
+            Collection<ITL> dataSrc = ExcelUtil.importStringSheetToClass(clazz, in, sheetName, sqlIndex, logs);
+            contents = dataSrc.stream()
+                    .collect(toMap(
+                            ITL::getTARGET_TABLE,//TARGET_TABLE作为键
+                            ITL -> StringUtil.trimStr(ITL.getGenerate_Text()),//Generate_Text作为值
+                            ( x, y ) -> StringUtil.trimStr(x) + "\n" + StringUtil.trimStr(y)));//Generate_Text的值字符串作拼接
+        }
+        if ("RPT".equals(sheetName)) {
+            Collection<RPT> dataSrc = ExcelUtil.importStringSheetToClass(clazz, in, sheetName, sqlIndex, logs);
+            contents = dataSrc.stream()
+                    .collect(toMap(
+                            RPT::getTARGET_TABLE,//TARGET_TABLE作为键
+                            RPT -> StringUtil.trimStr(RPT.getGenerate_Text()),//Generate_Text作为值
                             ( x, y ) -> StringUtil.trimStr(x) + "\n" + StringUtil.trimStr(y)));//Generate_Text的值字符串作拼接
         }
 
@@ -174,8 +192,8 @@ public class ExcelSqlGenerator {
         try {
 //            excelSqlGenerator.generate("./src/test/resources/Generate Script TemplateEDW - F1&F2&F5&Append - 副本.xlsm"
 //                    , "F5", 3, null, null, null);
-            excelSqlGenerator.generate("./src/test/resources/Generate Script TemplateEDW - F1&F2&F5&Append - 副本.xlsm"
-                    , "Append", 11, null, null, null);
+            excelSqlGenerator.generate("./src/test/resources/mapper.xls"
+                    , "RPT", 12, null, null, null);
         } catch (FileNotFoundException e) {
             System.err.println("未找到输入文件");
         }

@@ -77,7 +77,7 @@ public class MapperGenerator {
                         .setTARGET_TABLE(x.get表名())
                         .setTARGET_FIELD(x.get列名())
                         .setLOGICAL_ATTRIBUTE(x.get列名备注())
-                        .setTARGET_DATA_TYPE(x.get数据类型())
+                        .setTARGET_DATA_TYPE(DataTypeSwitcher(x.get数据类型()))
                         .setBLANK_COLUMN(" ")
                         .setSTAGE_TABLE("E_" + x.get表名())
                         .setSTAGE_FIELD(x.get列名())
