@@ -107,7 +107,7 @@ public class MapperGenerator {
         dataset.addAll(mapperSet);
         dataset.addAll(mapperSetUnMapped);
 
-        File f = new File("mapper.xls");
+        File f = new File("mapper_v2.1.xls");
         OutputStream out = new FileOutputStream(f);
         ExcelUtil.exportExcel(map, dataset, out);
         out.close();

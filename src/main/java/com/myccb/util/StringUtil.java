@@ -34,7 +34,7 @@ public class StringUtil {
      * @return java.lang.String
      * @Description 将字符串作trim
      * @author Swagger-Ranger
-     * @since 2020/2/13 13:12
+     * @since 2020/2/14 13:12
      */
     public static String trimStr( String str ) {
 
@@ -58,5 +58,6 @@ public class StringUtil {
         Matcher matcher = pattern.matcher(str);
         return matcher.matches();
     }
+
 
 }

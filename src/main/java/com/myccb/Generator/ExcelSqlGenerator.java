@@ -192,8 +192,8 @@ public class ExcelSqlGenerator {
         try {
 //            excelSqlGenerator.generate("./src/test/resources/Generate Script TemplateEDW - F1&F2&F5&Append - 副本.xlsm"
 //                    , "F5", 3, null, null, null);
-            excelSqlGenerator.generate("./src/test/resources/mapper.xls"
-                    , "RPT", 12, null, null, null);
+            excelSqlGenerator.generate("./src/test/resources/SS.xlsm"
+                    , "Append", 12, null, null, null);
         } catch (FileNotFoundException e) {
             System.err.println("未找到输入文件");
         }
