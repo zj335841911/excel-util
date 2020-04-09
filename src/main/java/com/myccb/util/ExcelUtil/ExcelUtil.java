@@ -89,34 +89,34 @@ public class ExcelUtil {
             return null;
         }
         CellType cellType = cell.getCellTypeEnum();
-            if(cellType == CellType.BLANK)
-                return null;
-            else if(cellType == CellType.BOOLEAN)
-                return cell.getBooleanCellValue();
-            else if(cellType == CellType.ERROR)
-                return cell.getErrorCellValue();
-            else if(cellType == CellType.FORMULA) {
-                try {
-                    if (HSSFDateUtil.isCellDateFormatted(cell)) {
-                        return cell.getDateCellValue();
-                    } else {
-                        return cell.getNumericCellValue();
-                    }
-                } catch (IllegalStateException e) {
-                    return cell.getRichStringCellValue();
-                }
-            }
-            else if(cellType == CellType.NUMERIC){
-                if (DateUtil.isCellDateFormatted(cell)) {
+        if(cellType == CellType.BLANK)
+            return null;
+        else if(cellType == CellType.BOOLEAN)
+            return cell.getBooleanCellValue();
+        else if(cellType == CellType.ERROR)
+            return cell.getErrorCellValue();
+        else if(cellType == CellType.FORMULA) {
+            try {
+                if (HSSFDateUtil.isCellDateFormatted(cell)) {
                     return cell.getDateCellValue();
                 } else {
                     return cell.getNumericCellValue();
                 }
+            } catch (IllegalStateException e) {
+                return cell.getRichStringCellValue();
             }
-            else if(cellType == CellType.STRING)
-                return cell.getStringCellValue();
-            else
-                return null;
+        }
+        else if(cellType == CellType.NUMERIC){
+            if (DateUtil.isCellDateFormatted(cell)) {
+                return cell.getDateCellValue();
+            } else {
+                return cell.getNumericCellValue();
+            }
+        }
+        else if(cellType == CellType.STRING)
+            return cell.getStringCellValue();
+        else
+            return null;
     }
 
     /**
@@ -150,7 +150,32 @@ public class ExcelUtil {
         HSSFWorkbook workbook = new HSSFWorkbook();
         // 生成一个表格
         HSSFSheet sheet = workbook.createSheet();
+        write2Sheet(sheet, headers, dataset, pattern);
+        try {
+            workbook.write(out);
+        } catch (IOException e) {
+            LG.error(e.toString(), e);
+        }
+    }
 
+    /**
+     * 利用JAVA的反射机制，将放置在JAVA集合中并且符号一定条件的数据以EXCEL 的形式输出到指定IO设备上<br>
+     * 用于单个sheet
+     *
+     * @param <T>
+     * @param headers 表格属性列名数组
+     * @param dataset 需要显示的数据集合,集合中一定要放置符合javabean风格的类的对象。此方法支持的
+     *                javabean属性的数据类型有基本数据类型及String,Date,String[],Double[]
+     * @param out     与输出设备关联的流对象，可以将EXCEL文档导出到本地文件或者网络中
+     * @param pattern 如果有时间数据，设定输出格式。默认为"yyy-MM-dd"
+     * @param sheetName 表格页签名
+     */
+    public static <T> void exportExcel(Map<String,String> headers, Collection<T> dataset, OutputStream out,
+                                       String pattern, String sheetName) {
+        // 声明一个工作薄
+        HSSFWorkbook workbook = new HSSFWorkbook();
+        // 生成一个表格
+        HSSFSheet sheet = workbook.createSheet(sheetName);
         write2Sheet(sheet, headers, dataset, pattern);
         try {
             workbook.write(out);
@@ -314,7 +339,7 @@ public class ExcelUtil {
         }
         // 设定自动宽度
 //        for (int i = 0; i < headers.size(); i++) {
-//            sheet.autoSizeColumn(i);
+//            sheet.autoSizeColumn[i];
 //        }
     }
 
@@ -653,6 +678,116 @@ public class ExcelUtil {
         return list;
     }
 
+    /**
+     * @Description 导入sheet中特定的列的属性为Java对象
+     * @param clazz 映射类
+     * @param inputStream excel文件流
+     * @param sheetName sheet名
+     * @param index 需要排除的目标列下标，即对应列中如果被删除线标记就跳过
+     * @param logs 日志
+     * @return java.util.Collection<T>
+     * @author zj
+     * @since 2020/03/27 09:20
+     */
+    public static <T> Collection<T> importSheetCellToClass( Class<T> clazz, InputStream inputStream, String sheetName,
+                                                            int index, ExcelLogs logs ) {
+
+        Workbook workBook;
+        try {
+            workBook = WorkbookFactory.create(inputStream);
+        } catch (Exception e) {
+            LG.error("load excel file error", e);
+            return null;
+        }
+        List<T> list = new ArrayList<>();
+        Sheet sheet = null;
+        try {
+            //如果传入的是数字字符串则解析为按下标读取
+            int sheetIndex = Integer.parseInt(sheetName);
+            sheet = workBook.getSheetAt(sheetIndex);
+        } catch (NumberFormatException e) {
+            sheet = workBook.getSheet(sheetName);//通过sheet页名获取,workBook.getSheetAt(sheetNum);//通过序列获取
+        }
+        Iterator<Row> rowIterator = sheet.rowIterator();
+        try {
+            List<ExcelLog> logList = new ArrayList<>();
+            while (rowIterator.hasNext()) {
+                Row row = rowIterator.next();
+                if (row.getRowNum() == 0) {
+                    continue;//跳过第一行的title行
+                }
+
+                // 整行都空，就跳过
+                boolean allRowIsNull = true;
+                Iterator<Cell> cellIterator = row.cellIterator();
+                while (cellIterator.hasNext()) {
+                    Object cellValue = getCellValue(cellIterator.next());
+                    if (cellValue != null) {
+                        allRowIsNull = false;
+                        break;
+                    }
+                }
+
+                //如果生成列是的数据被标记为删除线则跳过，AppenModel里对应列表为Generate_Text index = 11
+                boolean deleteRow = false;
+                Cell cell_del = row.getCell(index);
+                if (null != cell_del) {
+                    CellStyle cellStyle = cell_del.getCellStyle();
+                    if (null != cellStyle) {
+                        Font font = workBook.getFontAt(cellStyle.getFontIndex());
+                        if (font.getStrikeout()) {
+                            deleteRow = true;
+                        }
+                    }
+                }
+
+                if (allRowIsNull) {
+                    LG.warn("Excel row " + row.getRowNum() + " all row value is null!");
+                    continue;
+                }
+                if (deleteRow) {
+                    LG.warn("Excel row " + row.getRowNum() + " data at index =" + index + " is marked as deleted!");
+                    continue;
+                }
+                StringBuilder log = new StringBuilder();
+
+                T t = clazz.newInstance();
+                List<FieldAtIndex> fields = FieldByAnno(clazz);
+                for (FieldAtIndex ffs : fields) {
+                    Field field = ffs.getField();
+                    field.setAccessible(true);
+                    Cell cell = row.getCell(ffs.getIndex());
+                    String errMsg = validateCell(cell, field, ffs.getIndex());
+                    if (isBlank(errMsg)) {
+                        Object value = null;
+                        value = getCellValue(cell);
+                        // 处理特殊情况,excel的value为String,且bean中为其他,且defaultValue不为空,那就=defaultValue
+                        ExcelCell annoCell = field.getAnnotation(ExcelCell.class);
+                        if (value instanceof String && !field.getType().equals(String.class)
+                                && isNotBlank(annoCell.defaultValue())) {
+                            value = annoCell.defaultValue();
+                        }
+                        field.set(t, value);
+                    }
+                    if (isNotBlank(errMsg)) {
+                        log.append(errMsg).append(";");
+                        logs.setHasError(true);
+                    }
+                }
+                list.add(t);
+                logList.add(new ExcelLog(t, log.toString(), row.getRowNum() + 1));
+            }
+            logs.setLogList(logList);
+        } catch (InstantiationException e) {
+            throw new RuntimeException(MessageFormat.format("can not instance class:{0}",
+                    clazz.getSimpleName()), e);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(MessageFormat.format("can not instance class:{0}",
+                    clazz.getSimpleName()), e);
+        }
+        return list;
+    }
+
 
 
     /**
@@ -755,6 +890,7 @@ public class ExcelUtil {
         return result;
     }
 
+
     /**
      * 根据annotation的seq排序后的栏位
      *
@@ -834,8 +970,4 @@ public class ExcelUtil {
         return !isBlank(str);
     }
 
-    public static void main( String[] args ) {
-        System.out.println(Integer.parseInt("1"));
-
-    }
 }

@@ -60,16 +60,17 @@ public class MapperGenerator {
     public void generateMapper() throws IOException, ClassNotFoundException {
         //获取表名数据集合
         ArrayList<String> names_itl = getSourceTables("./src/test/resources/ITL_RPT_日数据量统计_20200119(1).xlsx", "itl");
-        ArrayList<String> names_rpt = getSourceTables("./src/test/resources/ITL_RPT_日数据量统计_20200119(1).xlsx", "rpt");
+//        ArrayList<String> names_rpt = getSourceTables("./src/test/resources/ITL_RPT_日数据量统计_20200119(1).xlsx", "rpt");
 
         //根据表名分别获取rpt和itl的模型数据，也就是表名获取对应字段然后产生新的mapper对象
-        ArrayList<DBModel> models_itl = (ArrayList<DBModel>) importDBModelToClass("./src/test/resources/（数仓模型）ITL层.xlsx");
-        ArrayList<DBModel> models_rpt = (ArrayList<DBModel>) importDBModelToClass("./src/test/resources/（数仓模型）RPT层.xlsx");
+        ArrayList<DBModel> models_itl = (ArrayList<DBModel>) importDBModelToClass("./src/test/resources/数仓（ITL层）_字段修正v2.1.xlsx");
+//        ArrayList<DBModel> models_rpt = (ArrayList<DBModel>) importDBModelToClass("./src/test/resources/（数仓模型）RPT层.xlsx");
 
         //获取到的mapper对象
-        models_itl.addAll(models_rpt);
+//        models_itl.addAll(models_rpt);
         ArrayList<Mapper> mapperSet = (ArrayList<Mapper>) models_itl.stream()
-                .filter(x -> names_rpt.contains(x.get表名().toUpperCase()) || names_itl.contains(x.get表名().toUpperCase()))
+//                .filter(x -> names_rpt.contains(x.get表名().toUpperCase()) || names_itl.contains(x.get表名().toUpperCase()))
+                .filter(x -> names_itl.contains(x.get表名().toUpperCase()))
                 .filter(x -> !x.get列名().equals("ETL_DT"))
                 .map(x -> new Mapper()
                         .setGroup("Group1")
@@ -79,7 +80,7 @@ public class MapperGenerator {
                         .setLOGICAL_ATTRIBUTE(x.get列名备注())
                         .setTARGET_DATA_TYPE(DataTypeSwitcher(x.get数据类型()))
                         .setBLANK_COLUMN(" ")
-                        .setSTAGE_TABLE("E_" + x.get表名())
+                        .setSTAGE_TABLE("ET_" + x.get表名())
                         .setSTAGE_FIELD(x.get列名())
                         .set源字段描述(x.get列名备注())
                         .setSOURCE_DATA_TYPE(DataTypeSwitcher(x.get数据类型()))
@@ -87,10 +88,10 @@ public class MapperGenerator {
 
         //获取到没有映射到的表名数据
         Set<String> itlUnmapped = models_itl.stream().map(DBModel::get表名).collect(Collectors.toSet());
-        Set<String> rptUnmapped = models_rpt.stream().map(DBModel::get表名).collect(Collectors.toSet());
+//        Set<String> rptUnmapped = models_rpt.stream().map(DBModel::get表名).collect(Collectors.toSet());
         List<String> unMapped_itl = names_itl.stream().filter(x -> !itlUnmapped.contains(x.toUpperCase())).collect(Collectors.toList());
-        List<String> unMapped_rpt = names_rpt.stream().filter(x -> !rptUnmapped.contains(x.toUpperCase())).collect(Collectors.toList());
-        unMapped_itl.addAll(unMapped_rpt);
+//        List<String> unMapped_rpt = names_rpt.stream().filter(x -> !rptUnmapped.contains(x.toUpperCase())).collect(Collectors.toList());
+//        unMapped_itl.addAll(unMapped_rpt);
 
         ArrayList<Mapper> mapperSetUnMapped = (ArrayList<Mapper>) unMapped_itl.stream()
                 .map(x -> new Mapper().setGroup("UnMapped").setTARGET_TABLE(x.toUpperCase()))

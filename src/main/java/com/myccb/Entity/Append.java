@@ -14,6 +14,32 @@ import lombok.ToString;
 @ToString
 public class Append {
 
+//    @ExcelCell(index = 0)
+//    private String Group;
+//    @ExcelCell(index = 1)
+//    private String LOGICAL_ENTITY;
+//    @ExcelCell(index = 2)
+//    private String TARGET_TABLE;
+//    @ExcelCell(index = 3)
+//    private String TARGETFIELD;
+//    @ExcelCell(index = 4)
+//    private String LOGICAL_ATTRIBUTE;
+//    @ExcelCell(index = 5)
+//    private String TARGET_DATA_TYPE;
+//    @ExcelCell(index = 6)
+//    private String STAGE_TABLE;
+//    @ExcelCell(index = 7)
+//    private String STAGE_FIELD;
+//    @ExcelCell(index = 8)
+//    private String 源字段描述;
+//    @ExcelCell(index = 9)
+//    private String SOURCE_DATA_TYPE;
+//    @ExcelCell(index = 10)
+//    private String LOGIC;
+//    @ExcelCell(index = 11)
+//    private String Generate_Text;
+
+    //加入空格列与表格内容格式相同
     @ExcelCell(index = 0)
     private String Group;
     @ExcelCell(index = 1)
@@ -27,16 +53,18 @@ public class Append {
     @ExcelCell(index = 5)
     private String TARGET_DATA_TYPE;
     @ExcelCell(index = 6)
-    private String STAGE_TABLE;
+    private String BLANK_LINE;
     @ExcelCell(index = 7)
-    private String STAGE_FIELD;
+    private String STAGE_TABLE;
     @ExcelCell(index = 8)
-    private String 源字段描述;
+    private String STAGE_FIELD;
     @ExcelCell(index = 9)
-    private String SOURCE_DATA_TYPE;
+    private String 源字段描述;
     @ExcelCell(index = 10)
-    private String LOGIC;
+    private String SOURCE_DATA_TYPE;
     @ExcelCell(index = 11)
+    private String LOGIC;
+    @ExcelCell(index = 12)
     private String Generate_Text;
 
 }

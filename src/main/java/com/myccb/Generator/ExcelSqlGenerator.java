@@ -102,7 +102,6 @@ public class ExcelSqlGenerator {
                             ( x, y ) -> StringUtil.trimStr(x) + "\n" + StringUtil.trimStr(y)));//Generate_Text的值字符串作拼接
         }
 
-
         contents.entrySet().forEach(
                 x -> {
                     StringBuffer stringBuffer = new StringBuffer();
@@ -192,7 +191,7 @@ public class ExcelSqlGenerator {
         try {
 //            excelSqlGenerator.generate("./src/test/resources/Generate Script TemplateEDW - F1&F2&F5&Append - 副本.xlsm"
 //                    , "F5", 3, null, null, null);
-            excelSqlGenerator.generate("./src/test/resources/SS.xlsm"
+            excelSqlGenerator.generate("D:\\Swagger-Ranger\\git-workspace\\ExcelUtil\\mapper_v2.1.xls"
                     , "Append", 12, null, null, null);
         } catch (FileNotFoundException e) {
             System.err.println("未找到输入文件");
