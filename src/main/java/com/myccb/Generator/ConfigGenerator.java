@@ -2,9 +2,9 @@ package com.myccb.Generator;
 
 import com.myccb.Entity.ConfigModel;
 import com.myccb.Entity.mapper.DBModel1;
-import com.myccb.Entity.mapper.ITL_RPT;
 import com.myccb.util.ExcelUtil.ExcelLogs;
 import com.myccb.util.ExcelUtil.ExcelUtil;
+import com.myccb.util.StringUtil;
 
 import java.io.*;
 import java.util.*;
@@ -18,29 +18,27 @@ import java.util.stream.Collectors;
  */
 public class ConfigGenerator {
 
-    public void configGenerator(String itlFilePath, String rptFilePath, String targetFilePath ) throws FileNotFoundException, ClassNotFoundException {
-        //获取目标表名数据集合
-        ArrayList<String> names_itl = getSourceTables(targetFilePath, "itl");
-        ArrayList<String> names_rpt = getSourceTables(targetFilePath, "rpt");
+    /**
+     * @param filePath  数仓模型文件路径
+     * @param sheetName  页签名
+     * @Description 根据传入路径和页签名生成sqoop配置文件
+     * @author zj
+     * @since 2020/3/31 13:40
+     */
+    public void configGenerator(String filePath, String sheetName ) throws FileNotFoundException {
+        if ("".equals(StringUtil.trimStr(filePath))) throw new RuntimeException("请输入源文件的文件路径");
         //根据给定的路径读取excel生成相应的数据仓模型数据
-        Collection<DBModel1> itlTables = importDBModel1ToClass(itlFilePath);
-        Collection<DBModel1> rptTables = importDBModel1ToClass(rptFilePath);
+        Collection<DBModel1> dbModel1s = importDBModelToClass(filePath, sheetName);
         //用于存储根据表名分类后的数据
-        Map<String, List<DBModel1>> itlContents = null;
-        Map<String, List<DBModel1>> rptContents = null;
-        //提取表中表名与目标表表名相同的数据，并根据表名对集合数据进行分类
-        itlContents = itlTables.stream()
-                .filter(x -> names_itl.contains(x.get表名().toUpperCase()))
-                .collect(Collectors.groupingBy(DBModel1::get表名));
-        rptContents = rptTables.stream()
-                .filter(x -> names_rpt.contains(x.get表名().toUpperCase()))
-                .collect(Collectors.groupingBy(DBModel1::get表名));
+        Map<String, List<DBModel1>> contents = null;
+        //根据表名对集合数据进行分类
+        contents = dbModel1s.stream().collect(Collectors.groupingBy(DBModel1::get表名));
         List<ConfigModel> configModels = new ArrayList<>();
-        itlContents.entrySet().forEach(
+        contents.entrySet().forEach(
                 x -> {
                     List<DBModel1> dbModelList = x.getValue();
                     //获取配置文件实体集合
-                    List<ConfigModel> configModels1 = getConfigModels1(dbModelList);
+                    List<ConfigModel> configModels1 = getConfigModels1(dbModelList, sheetName);
                     configModels.addAll(configModels1);
                 }
         );
@@ -54,49 +52,9 @@ public class ConfigGenerator {
         configTextTotal.append(getConfigTextTotalHead());
         //向配置文件内添加内容
         addContentToConfigTextTotal(configTextTotal, configModel);
-        configModels.clear();
-        rptContents.entrySet().forEach(
-                x -> {
-                    List<DBModel1> dbModelList = x.getValue();
-                    //获取配置文件实体集合
-                    List<ConfigModel> configModels1 = getConfigModels1(dbModelList);
-                    configModels.addAll(configModels1);
-                }
-        );
-        //将数据根据表名分类
-        configModel = configModels.stream().collect(Collectors.groupingBy(ConfigModel::getTable_name));
-        //向配置文件内添加内容
-       addContentToConfigTextTotal(configTextTotal, configModel);
-
         //写入文件,文件路径为固定的相对路径
-        String filePath1 = new File("").getAbsolutePath() + "\\out\\SqoopConfig" + "\\" + "itl_rpt_cfg.conf";
+        String filePath1 = new File("").getAbsolutePath() + "\\out\\" + sheetName + "\\SqoopConfig" + "\\" + sheetName.toLowerCase() + "_cfg.conf";
         write2File(filePath1, configTextTotal.toString());
-    }
-
-
-
-    /**
-     * @param filePath  文件路径
-     * @param sheetName 传入itl或者rpt
-     * @return java.util.Set<java.lang.String>
-     * @Description 获取元数据的表名数据
-     * @author Swagger-Ranger
-     * @since 2020/2/24 18:34
-     */
-    private ArrayList<String> getSourceTables( String filePath, String sheetName ) throws FileNotFoundException, ClassNotFoundException {
-
-        File f = new File(filePath);
-        InputStream in = new FileInputStream(f);
-
-        ExcelLogs logs = new ExcelLogs();
-        Class clazz = null;
-        clazz = Class.forName("com.myccb.Entity.mapper.ITL_RPT");
-
-        ArrayList<ITL_RPT> tables = (ArrayList<ITL_RPT>) ExcelUtil.importStringSheetToClass(clazz, in, sheetName, 1, logs);
-        ArrayList<String> tableNames = (ArrayList<String>) tables.stream()
-                .map(ITL_RPT::getTableName)
-                .map(String::toUpperCase).collect(Collectors.toList());
-        return tableNames;
     }
 
 
@@ -104,10 +62,10 @@ public class ConfigGenerator {
      * @param filePath 文件路径
      * @return java.util.Collection<com.myccb.Entity.mapper.DBModel1>
      * @Description 获取数仓模型数据
-     * @author zj
-     * @since 2020/3/24 18:33
+     * @author Swagger-Ranger
+     * @since 2020/2/24 18:33
      */
-    private Collection<DBModel1> importDBModel1ToClass(String filePath ) throws FileNotFoundException {
+    private Collection<DBModel1> importDBModelToClass( String filePath, String sheetName ) throws FileNotFoundException {
 
         File f = new File(filePath);
         InputStream in = new FileInputStream(f);
@@ -119,7 +77,7 @@ public class ConfigGenerator {
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
         }
-        Collection<DBModel1> tables = ExcelUtil.importStringSheetToClass(clazz, in, "0", 1, logs);
+        Collection<DBModel1> tables = ExcelUtil.importSheetCellToClass(clazz, in, sheetName, 1, logs);
         return tables;
     }
 
@@ -180,13 +138,13 @@ public class ConfigGenerator {
      * @author zj
      * @since 2020/4/2 19:01
      */
-    private ArrayList<ConfigModel> getConfigModels1(List<DBModel1> dbModelList) {
+    private ArrayList<ConfigModel> getConfigModels1(List<DBModel1> dbModelList, String sheetName) {
         ArrayList<ConfigModel> configModels1 = new ArrayList<>();
         configModels1 = (ArrayList<ConfigModel>) dbModelList.stream()
                 .map(y -> new ConfigModel()
-                        .setConfig_table_name(y.get表名().startsWith("T")?"itl_tab_col_conf":"rpt_tab_col_conf")
+                        .setConfig_table_name("ITL".equals(sheetName) ? "itl_tab_col_conf" : "rpt_tab_col_conf")
                         .setTable_name(y.get表名())
-                        .setSrc_sys_short_name(y.get表名().startsWith("T")?"itl":"rpt")
+                        .setSrc_sys_short_name("ITL".equals(sheetName) ? "itl":"rpt")
                         .setTable_comments(y.get表名备注())
                         .setColumn_id(y.getCOLUMN_ID().intValue())
                         .setColumn_name(y.get列名())
@@ -224,7 +182,32 @@ public class ConfigGenerator {
     }
 
     /**
-     *
+     * @param configTextTotal 配置文件
+     * @param configModel 配置实体集合
+     * @return StringBuffer
+     * @Description 向配置文件内添加内容
+     * @author zj
+     * @since 2020/4/2 19:01
+     */
+    private void addContentToConfigTextTotal(StringBuffer configTextTotal, Map<String, List<ConfigModel>> configModel) {
+        configModel.entrySet().forEach(
+                x -> {
+                    StringBuffer configText = new StringBuffer();
+                    //文件名
+                    String targertTableName = x.getKey();
+                    //配置文件类型
+                    String configType = x.getValue().get(0).getSrc_sys_short_name();
+                    //根据表名分类后的每个表所对应的内容集合
+                    List<ConfigModel> configModelList = x.getValue();
+                    //获取configText
+                    configText.append(getConfigText(targertTableName, configType, configModelList));
+                    //配置文件内容拼接
+                    configTextTotal.append(configText);
+                }
+        );
+    }
+
+    /**
      * @param configType
      * @param column_name 处理后的字段名
      * @param columnName 未经处理的的字段名
@@ -252,33 +235,6 @@ public class ConfigGenerator {
         }
         return source_columns;
     }
-
-    /**
-     * @param configTextTotal 配置文件
-     * @param configModel 配置实体集合
-     * @return StringBuffer
-     * @Description 向配置文件内添加内容
-     * @author zj
-     * @since 2020/4/2 19:01
-     */
-    private void addContentToConfigTextTotal(StringBuffer configTextTotal, Map<String, List<ConfigModel>> configModel) {
-        configModel.entrySet().forEach(
-                x -> {
-                    StringBuffer configText = new StringBuffer();
-                    //文件名
-                    String targertTableName = x.getKey();
-                    //配置文件类型
-                    String configType = x.getValue().get(0).getSrc_sys_short_name();
-                    //根据表名分类后的每个表所对应的内容集合
-                    List<ConfigModel> configModelList = x.getValue();
-                    //获取configText
-                    configText.append(getConfigText(targertTableName, configType, configModelList));
-                    //配置文件内容拼接
-                    configTextTotal.append(configText);
-                }
-        );
-    }
-
 
     /**
      * @param targertTableName 文件名
@@ -333,12 +289,10 @@ public class ConfigGenerator {
         return configText;
     }
 
-    public static void main(String[] args) throws FileNotFoundException, ClassNotFoundException {
+    public static void main(String[] args) throws FileNotFoundException {
         ConfigGenerator cg = new ConfigGenerator();
-        cg.configGenerator("./src/test/resources/（数仓模型）ITL层.xlsx",
-                "./src/test/resources/（数仓模型）RPT层.xlsx",
-                "./src/test/resources/ITL_RPT_日数据量统计_20200119(1).xlsx"
+        cg.configGenerator("E:\\MYSH\\needExcel\\数仓模型.xlsx",
+                "ITL"
         );
     }
-
 }

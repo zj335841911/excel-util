@@ -45,4 +45,16 @@ public class DBModel1 {
     @ExcelCell(index = 9)
     private String 列名备注;
 
+    @ExcelCell(index = 10)
+    private Double 分桶个数;
+
+    @ExcelCell(index = 11)
+    private String 是否分布键;
+
+    @ExcelCell(index = 12)
+    private String 是否有效;
+
+    @ExcelCell(index = 13)
+    private String 算法;
+
 }

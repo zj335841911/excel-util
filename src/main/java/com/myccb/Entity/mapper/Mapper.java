@@ -52,5 +52,8 @@ public class Mapper {
     @ExcelCell(index = 11)
     private String LOGIC;
 
+    @ExcelCell(index = 11)
+    private String ALGORITHM;
+
 
 }

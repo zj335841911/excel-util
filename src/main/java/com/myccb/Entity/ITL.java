@@ -40,5 +40,4 @@ public class ITL {
     private String LOGIC;
     @ExcelCell(index = 12)
     private String Generate_Text;
-
 }

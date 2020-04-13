@@ -3,6 +3,7 @@ package com.myccb.Entity;
 import com.myccb.util.ExcelUtil.ExcelCell;
 import lombok.Data;
 import lombok.ToString;
+import lombok.experimental.Accessors;
 
 /**
  * @Author Email:liufei32@outlook.com  github:Swagger-Ranger
@@ -11,6 +12,7 @@ import lombok.ToString;
  */
 @Data
 @ToString
+@Accessors(chain = true)
 public class F5 {
 
     @ExcelCell(index = 0)

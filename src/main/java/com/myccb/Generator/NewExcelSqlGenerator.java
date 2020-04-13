@@ -1,7 +1,6 @@
 package com.myccb.Generator;
 
 import com.myccb.Entity.*;
-import com.myccb.Entity.mapper.Mapper;
 import com.myccb.util.ExcelUtil.ExcelLogs;
 import com.myccb.util.ExcelUtil.ExcelUtil;
 import com.myccb.util.StringUtil;
@@ -11,8 +10,6 @@ import java.text.MessageFormat;
 import java.util.*;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import static java.util.stream.Collectors.toMap;
 
 /**
  * @Description 生成个性化代码的工具类
@@ -42,6 +39,7 @@ public class NewExcelSqlGenerator {
 
     /**
      * @param srcFilePath 文件路径
+     * @param sheetName 页签名
      * @param subject     输出文件的注释头
      * @param description 输出文件的注释头
      * @param creator     输出文件的注释头
@@ -49,10 +47,8 @@ public class NewExcelSqlGenerator {
      * @author zj
      * @since 2020/04/01 09:46
      */
-    public void generate( String srcFilePath, String sheetName, int sqlIndex, String subject, String description, String creator ) throws FileNotFoundException {
-
+    public void generate( String srcFilePath, String sheetName, String subject, String description, String creator ) throws FileNotFoundException {
         if (StringUtil.trimStr(srcFilePath).equals("")) throw new RuntimeException("请输入源文件的文件路径");
-
         File f = new File(srcFilePath);
         InputStream in = new FileInputStream(f);
 
@@ -65,7 +61,6 @@ public class NewExcelSqlGenerator {
             System.err.println("请确认输入，待获取SQL文本的sheet名是否正确");
 
         }
-
         Map<String, String> contents = new HashMap<>();
         String LN = "\r\n\r\n";
         String s4 = "";String s13 = "";String s14 = "";String s20 = "";String s25 = "";String s26 = "";
@@ -76,56 +71,45 @@ public class NewExcelSqlGenerator {
         //针对不同的sheet作不同的解析
         if ("Append".equals(sheetName)) {
             //导入sheet中特定的列的属性为Java对象
-            Collection<Append> dataSrc = ExcelUtil.importSheetCellToClass(clazz, in, sheetName, sqlIndex, logs);
+            Collection<Append> dataSrc = ExcelUtil.importSheetCellToClass(clazz, in, sheetName, 13, logs);
             //将对象转化为list
             ArrayList<Append> appends = (ArrayList<Append>) dataSrc.stream().collect(Collectors.toList());
-            //提取对象中的group和target_table，合并后作为唯一标识进行去重
-            List<Append> appendArrayList = appends.stream().collect(
-                    Collectors.collectingAndThen(
-                            Collectors.toCollection(() -> new TreeSet<>(
-                                    Comparator.comparing(o ->
-                                            o.getGroup() + ";" + o.getTARGET_TABLE()))),
-                            ArrayList::new));
-            String[] arr1 = new String[appends.size() + 1];
-            int j = 0;
-            int x = 1;
-            int a = 0;
-            for (int y = 1; y <= appendArrayList.size(); y++){
-                while(appends.get(x).getGroup().equals(appends.get(x-1).getGroup())
-                        && appends.get(x).getTARGET_TABLE().equals(appends.get(x-1).getTARGET_TABLE())){
-                    j = j + 1;
-                    x = x + 1;
-                    if (x == appends.size()){
-                        break;
+            //根据表名分组
+            Map<String, List<Append>>  appendEachTable= appends.stream().collect(Collectors.groupingBy(Append::getTARGET_TABLE));
+            appendEachTable.entrySet().stream().forEach(
+                    x -> {
+                        StringBuffer sqlContents = new StringBuffer();
+                        sqlContents.append("--当天数据插入目标表" + LN + "insert overwrite table "
+                        + x.getKey() + " partition(pt)" + LN);
+                        x.getValue().stream().forEach(
+                                y -> {
+                                    //目标字段
+                                    String TARGETFIELD = y.getTARGETFIELD();
+                                    //源字段
+                                    String STAGE_FIELD = y.getSTAGE_FIELD();
+                                    //补充字段
+                                    String LOGIC = y.getLOGIC();
+                                    //每张表内首字段标识符，a为1时表示是首字段
+                                    int a = 0;
+                                    if (x.getValue().indexOf(y) == 0){
+                                        a = 1;
+                                    }
+                                    //获取源字段映射成目标字段的语句
+                                    String arr1 = getArr(a, TARGETFIELD, STAGE_FIELD, LOGIC);
+                                    sqlContents.append(arr1);
+                                }
+                        );
+                        sqlContents.append(",getdate() as Create_Time" + LN + ",to_date('$bizdate','yyyymmdd') as Tx_Dt" + LN
+                                + "from " + x.getKey() + LN + "where pt=concat('$bizdate','000000');" + LN);
+                        contents.put(x.getKey(), sqlContents.toString());
                     }
-                }
-                StringBuffer sqlContents = new StringBuffer();
-                sqlContents.append("--当天数据插入目标表" + LN + "insert overwrite table "
-                        + appends.get(a).getTARGET_TABLE() + " partition(pt)" + LN);
-                for (int Z = a; Z <= j; Z++ ){
-                    //目标字段
-                    String TARGETFIELD = appends.get(Z).getTARGETFIELD();
-                    //源字段
-                    String STAGE_FIELD = appends.get(Z).getSTAGE_FIELD();
-                    //补充字段
-                    String LOGIC = appends.get(Z).getLOGIC();
-                    //获取源字段映射成目标字段的语句
-                    arr1[Z] = getArr(Z, a, TARGETFIELD, STAGE_FIELD, LOGIC);
-                    sqlContents.append(arr1[Z]);
-                }
-                sqlContents.append(",getdate() as Create_Time" + LN + ",to_date('$bizdate','yyyymmdd') as Tx_Dt" + LN
-                        + "from " + appends.get(a).getSTAGE_TABLE() + LN + "where pt=concat('$bizdate','000000');" + LN);
-                contents.put(appends.get(a).getGroup()+"_"+appends.get(a).getTARGET_TABLE(),sqlContents.toString());
-                a = x;
-                x = x + 1;
-                j = j + 1;
-                s4 = "";
-            }
+            );
         }
+
 
         if ("F2".equals(sheetName)) {
             //导入sheet中特定的列的属性为Java对象
-            Collection<F2> dataSrc = ExcelUtil.importSheetCellToClass(clazz, in, sheetName, sqlIndex, logs);
+            Collection<F2> dataSrc = ExcelUtil.importSheetCellToClass(clazz, in, sheetName, 13, logs);
             //将对象转化为list
             ArrayList<F2> f2s = (ArrayList<F2>) dataSrc.stream().collect(Collectors.toList());
             int Z = 0;
@@ -178,7 +162,7 @@ public class NewExcelSqlGenerator {
 
         if ("F5".equals(sheetName)) {
             //导入sheet中特定的列的属性为Java对象
-            Collection<F5> dataSrc = ExcelUtil.importSheetCellToClass(clazz, in, sheetName, sqlIndex, logs);
+            Collection<F5> dataSrc = ExcelUtil.importSheetCellToClass(clazz, in, sheetName, 13, logs);
             //将对象转化为list
             ArrayList<F5> f5s = (ArrayList<F5>) dataSrc.stream().collect(Collectors.toList());
             int Z = 0;
@@ -334,151 +318,51 @@ public class NewExcelSqlGenerator {
 
         if ("Map".equals(sheetName)) {
             //导入sheet中特定的列的属性为Java对象
-            Collection<com.myccb.Entity.Map> dataSrc = ExcelUtil.importSheetCellToClass(clazz, in, sheetName, sqlIndex, logs);
+            Collection<com.myccb.Entity.Map> dataSrc = ExcelUtil.importSheetCellToClass(clazz, in, sheetName, 13, logs);
             //将对象转化为list
             ArrayList<com.myccb.Entity.Map> maps = (ArrayList<com.myccb.Entity.Map>) dataSrc.stream().collect(Collectors.toList());
-            //提取对象中的group和target_table，合并后作为唯一标识进行去重
-            List<com.myccb.Entity.Map> mapArrayList = maps.stream().collect(
-                    Collectors.collectingAndThen(
-                            Collectors.toCollection(() -> new TreeSet<>(
-                                    Comparator.comparing(o ->
-                                            o.getGroup() + ";" + o.getTARGET_TABLE()))),
-                            ArrayList::new));
-            String[] arr1 = new String[maps.size()+1];
-            int j = 0;
-            int x = 1;
-            int a = 0;
-            for (int y = 1; y <= mapArrayList.size(); y++){
-                while(maps.get(x).getGroup().equals(maps.get(x-1).getGroup())
-                        && maps.get(x).getTARGET_TABLE().equals(maps.get(x-1).getTARGET_TABLE())){
-                    j = j + 1;
-                    x = x + 1;
-                    if (x == maps.size()){
-                        break;
+            //根据表名分组
+            Map<String, List<com.myccb.Entity.Map>>  mapEachTable= maps.stream().collect(Collectors.groupingBy(com.myccb.Entity.Map::getTARGET_TABLE));
+            //遍历每张表并对表中数据进行处理
+            mapEachTable.entrySet().forEach(
+                    x -> {
+                        StringBuffer sqlContents = new StringBuffer();
+                        sqlContents.append("--当天数据插入目标表" + LN + "insert overwrite table T_"
+                                + x.getKey() + "_CUR_I" + LN + "select" + LN);
+                        x.getValue().forEach(
+                                y -> {
+                                    //目标字段
+                                    String TARGETFIELD = y.getTARGETFIELD();
+                                    //源字段
+                                    String STAGE_FIELD = y.getSTAGE_FIELD();
+                                    //补充字段
+                                    String LOGIC = y.getLOGIC();
+                                    //每张表内首字段标识符，a为1时表示是首字段
+                                    int a = 0;
+                                    if (x.getValue().indexOf(y) == 0){
+                                        a = 1;
+                                    }
+                                    //获取源字段映射成目标字段的语句
+                                    String arr1 = getArr(a, TARGETFIELD, STAGE_FIELD, LOGIC);
+                                    sqlContents.append(arr1);
+                                }
+                        );
+                        sqlContents.append(",getdate() as Create_Time" + LN + ",to_date('$bizdate','yyyymmdd') as Tx_Dt" + LN
+                                + "from " + x.getKey() + LN + "where pt=concat('$bizdate','000000');" + LN);
+                        contents.put(x.getKey(), sqlContents.toString());
                     }
-                }
-                StringBuffer sqlContents = new StringBuffer();
-                sqlContents.append("--当天数据插入目标表" + LN + "insert overwrite table T_"
-                        + maps.get(a).getTARGET_TABLE() + "_CUR_I" + LN + "select" + LN);
-                for (int Z = a; Z <= j; Z++ ){
-                    //目标字段
-                    String TARGETFIELD = maps.get(Z).getTARGETFIELD();
-                    //源字段
-                    String STAGE_FIELD = maps.get(Z).getSTAGE_FIELD();
-                    //补充字段
-                    String LOGIC = maps.get(Z).getLOGIC();
-                    //获取源字段映射成目标字段的语句
-                    arr1[Z] = getArr(Z, a, TARGETFIELD, STAGE_FIELD, LOGIC);
-                    sqlContents.append(arr1[Z]);
-                }
-                sqlContents.append(",getdate() as Create_Time" + LN + ",to_date('$bizdate','yyyymmdd') as Tx_Dt" + LN
-                        + "from " + maps.get(a).getSTAGE_TABLE() + LN + "where pt=concat('$bizdate','000000');" + LN);
-                contents.put(maps.get(a).getGroup()+"_"+maps.get(a).getTARGET_TABLE(),sqlContents.toString());
-                a = x;
-                x = x + 1;
-                j = j + 1;
-                s4 = "";
-            }
-        }
-
-        if ("ITL".equals(sheetName)) {
-            //导入sheet中特定的列的属性为Java对象
-            Collection<ITL> dataSrc = ExcelUtil.importSheetCellToClass(clazz, in, sheetName, sqlIndex, logs);
-            //将对象转化为list
-            ArrayList<ITL> itls = (ArrayList<ITL>) dataSrc.stream().collect(Collectors.toList());
-            //提取对象中的group和target_table，合并后作为唯一标识进行去重
-            List<ITL> itlArrayList = itls.stream().collect(
-                    Collectors.collectingAndThen(
-                            Collectors.toCollection(() -> new TreeSet<>(
-                                    Comparator.comparing(o ->
-                                            o.getGroup() + ";" + o.getTARGET_TABLE()))),
-                            ArrayList::new));
-            String[] arr1 = new String[itls.size()+1];
-            int j = 0;
-            int x = 1;
-            int a = 0;
-            for (int y = 1; y <= itlArrayList.size(); y++){
-                while(itls.get(x).getGroup().equals(itls.get(x-1).getGroup())
-                        && itls.get(x).getTARGET_TABLE().equals(itls.get(x-1).getTARGET_TABLE())){
-                    j = j + 1;
-                    x = x + 1;
-                    if (x == itls.size()){
-                        break;
-                    }
-                }
-                StringBuffer sqlContents = new StringBuffer();
-                sqlContents.append("--当天数据插入目标表" + LN + "use itl;" + LN + "insert overwrite table "
-                        + itls.get(a).getTARGET_TABLE() + " partition(ETL_DT=ETL_DTDATA)" + LN + "select" + LN);
-                for (int Z = a; Z <= j; Z++ ){
-                    //目标字段
-                    String TARGETFIELD = itls.get(Z).getTARGETFIELD();
-                    //源字段
-                    String STAGE_FIELD = itls.get(Z).getSTAGE_FIELD();
-                    //补充字段
-                    String LOGIC = itls.get(Z).getLOGIC();
-                    //获取源字段映射成目标字段的语句
-                    arr1[Z] = getArr(Z, a, TARGETFIELD, STAGE_FIELD, LOGIC);
-                    sqlContents.append(arr1[Z]);
-                }
-                sqlContents.append("from odm." + itls.get(a).getSTAGE_TABLE() + LN);
-                contents.put(itls.get(a).getGroup() + "_" + itls.get(a).getTARGET_TABLE(),sqlContents.toString());
-                a = x;
-                x = x + 1;
-                j = j + 1;
-                s4 = "";
-            }
-        }
-
-        if ("RPT".equals(sheetName)) {
-            //导入sheet中特定的列的属性为Java对象
-            Collection<RPT> dataSrc = ExcelUtil.importSheetCellToClass(clazz, in, sheetName, sqlIndex, logs);
-            //将对象转化为list
-            ArrayList<RPT> rpts = (ArrayList<RPT>) dataSrc.stream().collect(Collectors.toList());
-            //提取对象中的group和target_table，合并后作为唯一标识进行去重
-            List<RPT> rptArrayList = rpts.stream().collect(
-                    Collectors.collectingAndThen(
-                            Collectors.toCollection(() -> new TreeSet<>(
-                                    Comparator.comparing(o ->
-                                            o.getGroup() + ";" + o.getTARGET_TABLE()))),
-                            ArrayList::new));
-            String[] arr1 = new String[rpts.size()+1];
-            int j = 0;
-            int x = 1;
-            int a = 0;
-            for (int y = 1; y <= rptArrayList.size(); y++){
-                while(rpts.get(x).getGroup().equals(rpts.get(x-1).getGroup())
-                        && rpts.get(x).getTARGET_TABLE().equals(rpts.get(x-1).getTARGET_TABLE())){
-                    j = j + 1;
-                    x = x + 1;
-                    if (x == rpts.size()){
-                        break;
-                    }
-                }
-                StringBuffer sqlContents = new StringBuffer();
-                sqlContents.append("--当天数据插入目标表" + LN + "use rpt;" + LN + "insert overwrite table "
-                        + rpts.get(a).getTARGET_TABLE() + " partition(STAT_DT=STAT_DTDATA)" + LN + "select" + LN);
-                for (int Z = a; Z <= j; Z++ ){
-                    //目标字段
-                    String TARGETFIELD = rpts.get(Z).getTARGETFIELD();
-                    //源字段
-                    String STAGE_FIELD = rpts.get(Z).getSTAGE_FIELD();
-                    //补充字段
-                    String LOGIC = rpts.get(Z).getLOGIC();
-                    //获取源字段映射成目标字段的语句
-                    arr1[Z] = getArr(Z, a, TARGETFIELD, STAGE_FIELD, LOGIC);
-                    sqlContents.append(arr1[Z]);
-                }
-                sqlContents.append("from odm." + rpts.get(a).getSTAGE_TABLE() + LN);
-                contents.put(rpts.get(a).getGroup()+"_"+rpts.get(a).getTARGET_TABLE(),sqlContents.toString());
-                a = x;
-                x = x + 1;
-                j = j + 1;
-                s4 = "";
-            }
+            );
         }
 
         contents.entrySet().forEach(
                 x -> {
+                    String parentFileName = "";
+                    if (srcFilePath.contains("ITL")){
+                        parentFileName = "ITL";
+                    }
+                    if (srcFilePath.contains("RPT")){
+                        parentFileName = "RPT";
+                    }
                     StringBuffer stringBuffer = new StringBuffer();
                     //生成文件注释头
                     stringBuffer.append(
@@ -489,12 +373,10 @@ public class NewExcelSqlGenerator {
                     //加入sql文本
                     stringBuffer.append(x.getValue());
                     //写入文件,文件路径为固定的相对路径
-                    String filePath = new File("").getAbsolutePath() + "\\out\\" + sheetName + "Macro" +  "\\" + x.getKey() + ".sql";
+                    String filePath = new File("").getAbsolutePath() + "\\out\\" + parentFileName +  "\\" + sheetName + "Macro" +  "\\" + x.getKey() + ".sql";
                     write2File(filePath, stringBuffer.toString());
                 }
         );
-
-
     }
 
 
@@ -510,7 +392,6 @@ public class NewExcelSqlGenerator {
     public String generate_head( String name, String subject, String description, String creator ) {
         return MessageFormat.format(SqlTitle, name, subject, description, creator, new Date());
     }
-
 
     /**
      * @param outFilePath 输出文件路径
@@ -562,8 +443,7 @@ public class NewExcelSqlGenerator {
     }
 
     /**
-     * @param Z 当前数据的下标
-     * @param a 每张表的第一行的下标
+     * @param a 是否为每张表的首个字段，a为1是表示首个
      * @param TARGETFIELD  目标字段
      * @param STAGE_FIELD  源字段
      * @return String   字符串
@@ -571,7 +451,7 @@ public class NewExcelSqlGenerator {
      * @author zj
      * @since 2020/04/02 14:46
      */
-    private String getArr(int Z, int a, String TARGETFIELD, String STAGE_FIELD, String LOGIC){
+    private String getArr(int a, String TARGETFIELD, String STAGE_FIELD, String LOGIC){
         String arr1 = "";
         String LN = "\r\n\r\n";
         if ("Start_Dt".equals(TARGETFIELD)){
@@ -580,13 +460,13 @@ public class NewExcelSqlGenerator {
             arr1 = ",to_date('29990101','yyyymmdd') as End_Dt" + LN;
         }else {
             if (!StringUtil.isNull(LOGIC)){
-                if (a == Z){
+                if (a == 1){
                     arr1 = LOGIC + " as " + TARGETFIELD + LN;
                 }else {
                     arr1 = "," + LOGIC + " as " + TARGETFIELD + LN;
                 }
             }else if (!StringUtil.isNull(STAGE_FIELD)){
-                if (Z == a){
+                if (a == 1){
                     arr1 = STAGE_FIELD + " as " + TARGETFIELD + LN;
                 }else {
                     arr1 = "," + STAGE_FIELD + " as " + TARGETFIELD + LN;
@@ -598,13 +478,16 @@ public class NewExcelSqlGenerator {
         return arr1;
     }
 
+
     public static void main( String[] args ) {
         NewExcelSqlGenerator newExcelSqlGenerator = new NewExcelSqlGenerator();
         try {
-            newExcelSqlGenerator.generate("E:\\MYSH\\ExcelUtil\\src\\test\\resources\\Generate Script TemplateEDW - F1&F2&F5&Append - 修正版.xlsm"
-                    , "F5", 12, null, null, null);
+//            newExcelSqlGenerator.generate("E:\\MYSH\\ExcelUtil\\src\\test\\resources\\Generate Script TemplateEDW - F1&F2&F5&Append - 修正版.xlsm"
+//                    , "F5", 12, null, null, null);
 //            newExcelSqlGenerator.generate("E:\\MYSH\\ExcelUtil\\src\\test\\resources\\rptMapper - 副本.xls"
 //                    , "RPT", 12, null, null, null);
+            newExcelSqlGenerator.generate("E:\\MYSH\\ExcelUtil\\out\\ITL\\mapper\\ITLMapper.xls",
+                    "Append", null, null, null);
         } catch (FileNotFoundException e) {
             System.err.println("未找到输入文件");
         }

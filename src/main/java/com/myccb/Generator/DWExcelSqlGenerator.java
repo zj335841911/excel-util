@@ -55,143 +55,83 @@ public class DWExcelSqlGenerator {
 
     /**
      * @param filePath  数仓模型文件路径
-     * @param targetFilePath  目标表名文件路径
-     * @param bucketsFilePath  分桶清单文件路径
+     * @param sheetName  页签名
      * @Description 根据传入路径自动生成ITL创表sql语句
      * @author zj
      * @since 2020/3/24 09:40
      */
-    public void itlSqlgenerate(String filePath, String targetFilePath, String bucketsFilePath) throws FileNotFoundException, ClassNotFoundException {
+    public void sqlgenerate(String filePath, String sheetName) throws FileNotFoundException {
         if ("".equals(StringUtil.trimStr(filePath))) throw new RuntimeException("请输入源文件的文件路径");
-        //获取目标表名数据集合
-//        ArrayList<String> names_itl = eg.getSourceTables("./src/test/resources/ITL_RPT_日数据量统计_20200119(1).xlsx", "itl");
-        ArrayList<String> names_itl = getSourceTables(targetFilePath, "itl");
         //用于存储根据表名分类后的数据
-        Map<String, List<DBModel>> contents = null;
+        Map<String, List<DBModel1>> contents = null;
         //根据给定的路径读取excel生成相应的数据仓模型数据
-        Collection<DBModel> tables = importDBModelToClass(filePath);
-        //根据给定的路径读取excel生成相应的分桶数据
-//        Collection<ITL_Buckets> itl_buckets = importITL_BucketsToClass("./src/test/resources/ITL_分桶清单.xlsx");
-        Collection<ITL_Buckets> itl_buckets = importITL_BucketsToClass(bucketsFilePath);
-        ArrayList<ITL_Buckets> itl_buckets1 = (ArrayList<ITL_Buckets>) itl_buckets.stream()
-                .filter(x -> "是".equals(x.get是否分桶最终())).collect(Collectors.toList());
-        //提取表中表名与目标表表名相同的数据，并根据表名对集合数据进行分类
+        Collection<DBModel1> tables = importDBModelToClass(filePath, sheetName);
+        //根据表名对集合数据进行分类
         contents = tables.stream()
-                .filter(x -> names_itl.contains(x.get表名().toUpperCase()))
-                .collect(Collectors.groupingBy(DBModel::get表名));
+                .collect(Collectors.groupingBy(DBModel1::get表名));
         contents.entrySet().forEach(
                 x -> {
                     StringBuffer sql = new StringBuffer();
                     sql.append("CREATE TABLE " + x.getKey() + "(\r\n");
-                   List<DBModel> dbModels = x.getValue();
+                    List<DBModel1> dbModels = x.getValue();
                     //向数仓模型创表sql语句文件添加内容
-                    addContentToSql(sql, dbModels);
+                    addContentToSql(sql, dbModels, sheetName);
                     String sql1 = sql.substring(0,sql.lastIndexOf(",\r\n"));
                     StringBuffer sql2 = new StringBuffer();
                     sql2.append(sql1 + "\r\n) COMMENT \"" + x.getValue().get(0).get表名备注() + "\""
-                            + "\r\nPARTITIONED BY  (ETL_DT STRING)");
-                    itl_buckets1.stream().forEach(c -> {
-                        if (c.get表名().toUpperCase().equals(x.getKey())){
-                            sql2.append("\r\nclustered  by  (" + c.get分布键() + ")  into    "
-                                    + c.get分桶个数取质数().intValue() + "   buckets" );
-                        }
-                    });
+                            + ("ITL".equals(sheetName) ? "\r\nPARTITIONED BY  (ETL_DT STRING)" : "\r\nPARTITIONED BY  (STAT_DT STRING)"));
+                    List<DBModel1> bucket = dbModels.stream().filter(y -> "是".equals(y.get是否分布键())).collect(Collectors.toList());
+                    if (bucket != null && bucket.size() != 0){
+                        sql2.append("\r\nclustered  by  (" );
+                        bucket.stream().forEach(a -> {
+                            if (bucket.size() - 1 == bucket.indexOf(a)){
+                                sql2.append(a.get列名());
+                            }else {
+                                sql2.append(a.get列名() + ",");
+                            }
+                        });
+                        sql2.append(")  into    " + bucket.get(0).get分桶个数().intValue() + "   buckets");
+                    }
                     sql2.append("\r\nSTORED AS  PARQUET;");
                     //写入文件,文件路径为固定的相对路径
-                    String filePath1 = new File("").getAbsolutePath() + "\\out\\Itl" + "\\" + x.getKey() + ".sql";
+                    String filePath1 = new File("").getAbsolutePath() + "\\out\\" + sheetName +"\\cereteSql\\"
+                            + x.getKey() + ".sql";
                     write2File(filePath1, sql2.toString());
+                    if ("ITL".equals(sheetName)){
+                        StringBuffer etSql = new StringBuffer();
+                        etSql.append("CREATE TABLE ET_" + x.getKey() + "(\r\n");
+                        dbModels.stream().forEach(
+                                y ->{
+                                    if ("ITL".equals(sheetName) ? "ETL_DT".equals(y.get列名()) : y.get列名().equals("STAT_DT")){
+                                        etSql.append("");
+                                    }else {
+                                        etSql.append(y.get列名() + "   " + y.get数据类型() + "  COMMENT \"" + y.get列名备注() + "\",\r\n");
+                                    }
+                                }
+                        );
+                        String etSql1 = etSql.substring(0,etSql.lastIndexOf(",\r\n"));
+                        StringBuffer etSql2 = new StringBuffer();
+                        etSql2.append(etSql1 + "\r\n) COMMENT \"" + x.getValue().get(0).get表名备注() + "\"" + "\r\nROW"
+                                + " FORMAT DELIMITED FIELDS TERMINATED BY \"\\001\" \r\nLOCATION \"/data/input/"
+                                + x.getKey() + "\";");
+                        //写入文件,文件路径为固定的相对路径
+                        String etFilePath = new File("").getAbsolutePath() + "\\out\\" + sheetName +"\\etcereteSql\\"
+                                + "ET_" + x.getKey() + ".sql";
+                        write2File(etFilePath, etSql2.toString());
+                    }
                 }
         );
-        System.out.println("itl创表语句sql生成成功");
     }
-
-
-    /**
-     * @param filePath  数仓模型文件路径
-     * @param targetFilePath  目标表名文件路径
-     * @param bucketsFilePath  分桶清单文件路径
-     * @Description 根据传入路径自动生成RPT创表sql语句
-     * @author zj
-     * @since 2020/3/26 09:40
-     */
-    public void rptSqlgenerate(String filePath, String targetFilePath, String bucketsFilePath) throws FileNotFoundException, ClassNotFoundException {
-        if ("".equals(StringUtil.trimStr(filePath))) throw new RuntimeException("请输入源文件的文件路径");
-        //获取目标表名数据集合
-//        ArrayList<String> names_rpt = eg.getSourceTables("./src/test/resources/ITL_RPT_日数据量统计_20200119(1).xlsx", "rpt");
-        ArrayList<String> names_rpt = getSourceTables(targetFilePath, "rpt");
-        //用于存储根据表名分类后的数据
-        Map<String, List<DBModel>> contents = null;
-        //根据给定的路径读取excel生成相应的数据仓模型数据
-        Collection<DBModel> tables = importDBModelToClass(filePath);
-        //根据给定的路径读取excel生成相应的分桶数据
-//        Collection<RPT_Buckets> rpt_buckets = importRPT_BucketsToClass("./src/test/resources/RPT_分桶清单.xlsx");
-        Collection<RPT_Buckets> rpt_buckets = importRPT_BucketsToClass(bucketsFilePath);
-        ArrayList<RPT_Buckets> rpt_buckets1 = (ArrayList<RPT_Buckets>) rpt_buckets.stream()
-                .filter(x -> "是".equals(x.get是否分桶最终())).collect(Collectors.toList());
-        //提取表中表名与目标表表名相同的数据，并根据表名对集合数据进行分类
-        contents = tables.stream()
-                .filter(x -> names_rpt.contains(x.get表名().toUpperCase()))
-                .collect(Collectors.groupingBy(DBModel::get表名));
-        contents.entrySet().forEach(
-                x -> {
-                    StringBuffer sql = new StringBuffer();
-                    sql.append("CREATE TABLE " + x.getKey() + "(\r\n");
-                    List<DBModel> dbModels = x.getValue();
-                    //向数仓模型创表sql语句文件添加内容
-                    addContentToSql(sql, dbModels);
-                    String sql1 = sql.substring(0,sql.lastIndexOf(",\r\n"));
-                    StringBuffer sql2 = new StringBuffer();
-                    sql2.append(sql1 + "\r\n) COMMENT \"" + x.getValue().get(0).get表名备注() + "\""
-                            + "\r\nPARTITIONED BY  (STAT_DT STRING)");
-                    rpt_buckets1.stream().forEach(c -> {
-                        if (c.get表名().toUpperCase().equals(x.getKey())){
-                            sql2.append("\r\nclustered  by  (" + c.get分布键() + ")  into    "
-                                    + c.get分桶个数取质数().intValue() + "   buckets" );
-                        }
-                    });
-                    sql2.append("\r\nSTORED AS  PARQUET;");
-                    //写入文件,文件路径为固定的相对路径
-                    String filePath1 = new File("").getAbsolutePath() + "\\out\\Rpt" + "\\" + x.getKey() + ".sql";
-                    write2File(filePath1, sql2.toString());
-                }
-        );
-        System.out.println("rpt创表语句sql生成成功");
-    }
-
-
-    /**
-     * @param filePath  文件路径
-     * @param sheetName 传入itl或者rpt
-     * @return java.util.Set<java.lang.String>
-     * @Description 获取元数据的表名数据
-     * @author Swagger-Ranger
-     * @since 2020/2/24 18:34
-     */
-    private ArrayList<String> getSourceTables( String filePath, String sheetName ) throws FileNotFoundException, ClassNotFoundException {
-
-        File f = new File(filePath);
-        InputStream in = new FileInputStream(f);
-
-        ExcelLogs logs = new ExcelLogs();
-        Class clazz = null;
-        clazz = Class.forName("com.myccb.Entity.mapper.ITL_RPT");
-
-        ArrayList<ITL_RPT> tables = (ArrayList<ITL_RPT>) ExcelUtil.importStringSheetToClass(clazz, in, sheetName, 1, logs);
-        ArrayList<String> tableNames = (ArrayList<String>) tables.stream()
-                .map(ITL_RPT::getTableName)
-                .map(String::toUpperCase).collect(Collectors.toList());
-        return tableNames;
-    }
-
 
     /**
      * @param filePath 文件路径
-     * @return java.util.Collection<com.myccb.Entity.mapper.DBModel>
+     *
+     * @return java.util.Collection<com.myccb.Entity.mapper.DBModel1>
      * @Description 获取数仓模型数据
-     * @author zj
-     * @since 2020/3/24 18:33
+     * @author Swagger-Ranger
+     * @since 2020/2/24 18:33
      */
-    private Collection<DBModel> importDBModelToClass(String filePath ) throws FileNotFoundException {
+    private Collection<DBModel1> importDBModelToClass( String filePath, String sheetName ) throws FileNotFoundException {
 
         File f = new File(filePath);
         InputStream in = new FileInputStream(f);
@@ -199,59 +139,11 @@ public class DWExcelSqlGenerator {
         ExcelLogs logs = new ExcelLogs();
         Class clazz = null;
         try {
-            clazz = Class.forName("com.myccb.Entity.mapper.DBModel");
+            clazz = Class.forName("com.myccb.Entity.mapper.DBModel1");
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
         }
-        Collection<DBModel> tables = ExcelUtil.importStringSheetToClass(clazz, in, "0", 1, logs);
-        return tables;
-    }
-
-
-    /**
-     * @param filePath 文件路径
-     * @return java.util.Collection<com.myccb.Entity.mapper.ITL_Buckets>
-     * @Description 获取itl分桶清单数据
-     * @author zj
-     * @since 2020/3/24 18:33
-     */
-    private Collection<ITL_Buckets> importITL_BucketsToClass(String filePath ) throws FileNotFoundException {
-
-        File f = new File(filePath);
-        InputStream in = new FileInputStream(f);
-
-        ExcelLogs logs = new ExcelLogs();
-        Class clazz = null;
-        try {
-            clazz = Class.forName("com.myccb.Entity.mapper.ITL_Buckets");
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        Collection<ITL_Buckets> tables = ExcelUtil.importSheetCellToClass(clazz, in, "0", 1, logs);
-        return tables;
-    }
-
-
-    /**
-     * @param filePath 文件路径
-     * @return java.util.Collection<com.myccb.Entity.mapper.ITL_Buckets>
-     * @Description 获取rpt分桶清单数据
-     * @author zj
-     * @since 2020/2/26 18:33
-     */
-    private Collection<RPT_Buckets> importRPT_BucketsToClass(String filePath ) throws FileNotFoundException {
-
-        File f = new File(filePath);
-        InputStream in = new FileInputStream(f);
-
-        ExcelLogs logs = new ExcelLogs();
-        Class clazz = null;
-        try {
-            clazz = Class.forName("com.myccb.Entity.mapper.RPT_Buckets");
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        Collection<RPT_Buckets> tables = ExcelUtil.importSheetCellToClass(clazz, in, "0", 1, logs);
+        Collection<DBModel1> tables = ExcelUtil.importSheetCellToClass(clazz, in, sheetName, 1, logs);
         return tables;
     }
 
@@ -262,7 +154,7 @@ public class DWExcelSqlGenerator {
      * @author zj
      * @since 2020/4/1 15:48
      */
-    private void addContentToSql(StringBuffer sql, List<DBModel> dbModels) {
+    private void addContentToSql(StringBuffer sql, List<DBModel1> dbModels, String sheetName ) {
         dbModels.stream().forEach(
                 y -> {
                     if (Arrays.asList ("CHANGE", "CHARACTER", "COMPRESSION", "DATA", "DATETIME", "FLOOR",
@@ -285,7 +177,7 @@ public class DWExcelSqlGenerator {
                             y.set数据类型("DECIMAL(38,6)");
                         }
                     }
-                    if (y.get表名().startsWith("T") ? "ETL_DT".equals(y.get列名()) : y.get列名().equals("STAT_DT")){
+                    if ("ITL".equals(sheetName) ? "ETL_DT".equals(y.get列名()) : y.get列名().equals("STAT_DT")){
                         a = "";
                     }else {
                         a = y.get列名() + "   " + y.get数据类型() + "  COMMENT \"" + y.get列名备注() + "\",\r\n";
@@ -364,10 +256,10 @@ public class DWExcelSqlGenerator {
     }
 
 
-    public static void main(String[] args) throws FileNotFoundException, ClassNotFoundException{
+    public static void main(String[] args) throws FileNotFoundException{
         DWExcelSqlGenerator eq=new DWExcelSqlGenerator();
-        eq.itlSqlgenerate("./src/test/resources/（数仓模型）ITL层.xlsx","./src/test/resources/ITL_RPT_日数据量统计_20200119(1).xlsx","./src/test/resources/ITL_分桶清单.xlsx");
-        eq.rptSqlgenerate("./src/test/resources/（数仓模型）RPT层.xlsx","./src/test/resources/ITL_RPT_日数据量统计_20200119(1).xlsx","./src/test/resources/RPT_分桶清单.xlsx");
+        eq.sqlgenerate("E:\\MYSH\\needExcel\\数仓模型.xlsx","RPT");
+
     }
 
 

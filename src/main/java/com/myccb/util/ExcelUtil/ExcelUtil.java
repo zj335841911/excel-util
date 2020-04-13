@@ -1,5 +1,8 @@
 package com.myccb.util.ExcelUtil;
 
+import com.myccb.Entity.Append;
+import com.myccb.Entity.F2;
+import com.myccb.Entity.F5;
 import org.apache.commons.beanutils.BeanComparator;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.ComparatorUtils;
@@ -260,6 +263,7 @@ public class ExcelUtil {
             LG.error(e.toString(), e);
         }
     }
+
 
     /**
      * 每个sheet的写入
@@ -958,6 +962,41 @@ public class ExcelUtil {
             }
         }
     }
+
+    /**
+     * 项目定制方法
+     * 利用JAVA的反射机制，将放置在JAVA集合中并且符号一定条件的数据以EXCEL 的形式输出到指定IO设备上<br>
+     * 用于生成多个sheet
+     * @param appendExcelSheet 需要显示的数据集合，集合中放置了sheetName, header, dataSet(javabean风格的类的对象)
+     * @param f2ExcelSheet 需要显示的数据集合，集合中放置了sheetName, header, dataSet(javabean风格的类的对象)
+     * @param f5ExcelSheet 需要显示的数据集合，集合中放置了sheetName, header, dataSet(javabean风格的类的对象)
+     * @param out     与输出设备关联的流对象，可以将EXCEL文档导出到本地文件或者网络中
+     * @param pattern 如果有时间数据，设定输出格式。默认为"yyy-MM-dd"
+     */
+    public static void exportExcel(ExcelSheet<Append> appendExcelSheet, ExcelSheet<F2> f2ExcelSheet, ExcelSheet<F5> f5ExcelSheet, OutputStream out,
+                                   String pattern) {
+        // 声明一个工作薄
+        HSSFWorkbook workbook = new HSSFWorkbook();
+        // 生成一个表格
+        if (appendExcelSheet != null){
+            HSSFSheet sheet = workbook.createSheet(appendExcelSheet.getSheetName());
+            write2Sheet(sheet, appendExcelSheet.getHeaders(), appendExcelSheet.getDataset(), pattern);
+        }
+        if (f2ExcelSheet != null){
+            HSSFSheet sheet = workbook.createSheet(f2ExcelSheet.getSheetName());
+            write2Sheet(sheet, f2ExcelSheet.getHeaders(), f2ExcelSheet.getDataset(), pattern);
+        }
+        if (f5ExcelSheet != null){
+            HSSFSheet sheet = workbook.createSheet(f5ExcelSheet.getSheetName());
+            write2Sheet(sheet, f5ExcelSheet.getHeaders(), f5ExcelSheet.getDataset(), pattern);
+        }
+        try {
+            workbook.write(out);
+        } catch (IOException e) {
+            LG.error(e.toString(), e);
+        }
+    }
+
 
     private static boolean isBlank(String str){
         if(str == null){
